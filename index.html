@@ -1,0 +1,2290 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>VN Stock Tracker 📈</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ============================================================
+   VN STOCK TRACKER — All-in-One
+   Theme: Dark financial terminal with neon accents
+   ============================================================ */
+:root {
+  --bg-base:       #080c10;
+  --bg-surface:    #0d1117;
+  --bg-card:       #111720;
+  --bg-input:      #0a0f15;
+  --bg-hover:      #161e28;
+  --bg-sidebar:    #090d12;
+
+  --text-primary:  #e2e8f0;
+  --text-secondary:#7f8fa6;
+  --text-muted:    #4a5568;
+
+  --border:        #1e2a38;
+  --border-bright: #2d3f53;
+
+  --neon-cyan:     #00d4ff;
+  --neon-green:    #00ff88;
+  --neon-red:      #ff3355;
+  --neon-orange:   #ff8c00;
+  --neon-purple:   #bf5fff;
+  --neon-yellow:   #ffe033;
+
+  --positive:      #00ff88;
+  --negative:      #ff3355;
+  --neutral:       #7f8fa6;
+
+  --sidebar-w:     250px;
+  --topbar-h:      56px;
+  --radius:        10px;
+  --radius-sm:     6px;
+  --font-mono:     'JetBrains Mono', monospace;
+  --font-display:  'Syne', sans-serif;
+  --transition:    0.18s ease;
+}
+[data-theme="light"] {
+  --bg-base:       #f0f4f8;
+  --bg-surface:    #ffffff;
+  --bg-card:       #ffffff;
+  --bg-input:      #f7f9fc;
+  --bg-hover:      #eef2f7;
+  --bg-sidebar:    #1a2332;
+  --text-primary:  #1a202c;
+  --text-secondary:#4a5568;
+  --text-muted:    #a0aec0;
+  --border:        #e2e8f0;
+  --border-bright: #cbd5e0;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 13px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-mono);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  z-index: 200;
+  transition: transform var(--transition);
+}
+.sidebar-header {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 800; font-size: 1.1rem;
+  color: var(--neon-cyan);
+  letter-spacing: -0.5px;
+}
+.logo i { font-size: 1.2rem; }
+.logo-sub { font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono); font-weight:400; margin-top:2px; display:block; letter-spacing:1px; }
+.sidebar-close { display:none; background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:1rem; padding:4px; }
+
+.nav-menu { list-style:none; padding: 12px 8px; flex:1; overflow-y:auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; color: var(--text-secondary);
+  font-size: 0.85rem; font-weight: 500;
+  transition: all var(--transition);
+  margin-bottom: 2px; position: relative;
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.nav-item.active {
+  background: rgba(0,212,255,0.08);
+  color: var(--neon-cyan);
+  border-left: 2px solid var(--neon-cyan);
+}
+.nav-item i { width: 18px; text-align: center; font-size: 0.9rem; }
+.nav-item .badge {
+  margin-left: auto;
+  background: var(--neon-red);
+  color: white;
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sync-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; color: var(--text-muted);
+}
+.sync-dot { font-size: 0.5rem; color: var(--neon-green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.sync-dot.syncing { color: var(--neon-yellow); }
+.sync-dot.error { color: var(--neon-red); animation: none; }
+
+/* ===== OVERLAY ===== */
+.overlay {
+  display:none; position:fixed; inset:0;
+  background: rgba(0,0,0,0.6);
+  z-index: 190; backdrop-filter: blur(2px);
+}
+.overlay.show { display:block; }
+
+/* ===== MAIN WRAPPER ===== */
+.main-wrapper {
+  margin-left: var(--sidebar-w);
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  transition: margin var(--transition);
+}
+
+/* ===== TOPBAR ===== */
+.topbar {
+  height: var(--topbar-h);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 12px;
+  position: sticky; top: 0; z-index: 100;
+}
+.topbar-title {
+  flex: 1;
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 1rem;
+  color: var(--text-primary);
+}
+.topbar-actions { display:flex; gap:6px; align-items:center; }
+.menu-toggle { display:none; }
+
+/* ===== BUTTONS ===== */
+.btn-icon {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-secondary); cursor: pointer;
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; transition: all var(--transition);
+  position: relative;
+}
+.btn-icon:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-bright); }
+.badge-dot {
+  position: absolute; top: 4px; right: 4px;
+  width: 7px; height: 7px;
+  background: var(--neon-red); border-radius: 50%;
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600;
+  cursor: pointer; border: 1px solid transparent;
+  transition: all var(--transition); white-space: nowrap;
+}
+.btn-primary { background: var(--neon-cyan); color: #000; border-color: var(--neon-cyan); }
+.btn-primary:hover { background: #00b8d9; }
+.btn-secondary { background: var(--bg-card); color: var(--text-primary); border-color: var(--border-bright); }
+.btn-secondary:hover { background: var(--bg-hover); }
+.btn-success { background: rgba(0,255,136,0.12); color: var(--neon-green); border-color: rgba(0,255,136,0.3); }
+.btn-success:hover { background: rgba(0,255,136,0.2); }
+.btn-danger { background: rgba(255,51,85,0.12); color: var(--neon-red); border-color: rgba(255,51,85,0.3); }
+.btn-danger:hover { background: rgba(255,51,85,0.2); }
+.btn-outline-danger { background: none; color: var(--neon-red); border-color: var(--neon-red); }
+.btn-outline-danger:hover { background: rgba(255,51,85,0.1); }
+.btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+.btn-group { display:flex; gap:8px; flex-wrap:wrap; }
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+/* ===== CONTENT ===== */
+.content { flex: 1; padding: 16px; }
+.page { display: none; animation: fadeIn 0.2s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+.page-actions {
+  display: flex; gap: 8px; align-items: center;
+  flex-wrap: wrap; margin-bottom: 14px;
+}
+
+/* ===== MARKET TICKER ===== */
+.market-ticker {
+  display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.ticker-item {
+  flex: 1; min-width: 130px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ticker-name { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 1px; }
+.ticker-price { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+.ticker-change { font-size: 0.75rem; font-weight: 600; }
+.ticker-change.pos { color: var(--positive); }
+.ticker-change.neg { color: var(--negative); }
+
+/* ===== CARDS ===== */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px; margin-bottom: 14px;
+}
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.summary-card {
+  padding: 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.card-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; flex-shrink: 0;
+}
+.card-icon.green { background: rgba(0,255,136,0.1); color: var(--neon-green); }
+.card-icon.blue { background: rgba(0,212,255,0.1); color: var(--neon-cyan); }
+.card-icon.orange { background: rgba(255,140,0,0.1); color: var(--neon-orange); }
+.card-icon.purple { background: rgba(191,95,255,0.1); color: var(--neon-purple); }
+.card-icon.red { background: rgba(255,51,85,0.1); color: var(--neon-red); }
+.card-info { flex: 1; min-width: 0; }
+.card-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 3px; }
+.card-value { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+.card-sub { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.card-header h3 {
+  font-family: var(--font-display);
+  font-size: 0.88rem; font-weight: 700;
+  color: var(--text-primary);
+  display: flex; align-items: center; gap: 8px;
+}
+.card-header h3 i { color: var(--neon-cyan); font-size: 0.8rem; }
+.card-header-actions { display:flex; align-items:center; gap:8px; }
+.last-update { font-size: 0.68rem; color: var(--text-muted); }
+
+.badge-info {
+  font-size: 0.65rem; padding: 2px 7px;
+  background: rgba(255,140,0,0.1);
+  color: var(--neon-orange);
+  border: 1px solid rgba(255,140,0,0.2);
+  border-radius: 4px;
+}
+
+/* ===== TABLE ===== */
+.table-responsive { overflow-x: auto; }
+.data-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.data-table th {
+  padding: 9px 12px; text-align: left;
+  color: var(--text-muted); font-weight: 600;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  font-size: 0.7rem; letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.data-table td {
+  padding: 9px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text-primary); white-space: nowrap;
+}
+.data-table tr:hover td { background: var(--bg-hover); }
+.data-table tr:last-child td { border-bottom: none; }
+.empty-state {
+  text-align: center; color: var(--text-muted);
+  padding: 28px !important; font-size: 0.8rem;
+}
+.pos { color: var(--positive) !important; }
+.neg { color: var(--negative) !important; }
+.neutral { color: var(--neutral) !important; }
+
+.symbol-badge {
+  display: inline-flex; align-items: center;
+  background: rgba(0,212,255,0.08);
+  border: 1px solid rgba(0,212,255,0.2);
+  color: var(--neon-cyan);
+  padding: 2px 7px; border-radius: 4px;
+  font-weight: 700; font-size: 0.8rem; letter-spacing: 1px;
+}
+
+/* ===== FORMS ===== */
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 5px; font-weight: 600; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 8px 10px;
+  background: var(--bg-input); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 0.82rem;
+  transition: border-color var(--transition); outline: none;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 0 2px rgba(0,212,255,0.1);
+}
+.form-group textarea { resize: vertical; min-height: 70px; }
+.form-hint { font-size: 0.68rem; color: var(--text-muted); margin-top: 4px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.input-with-btn { display: flex; gap: 6px; }
+.input-with-btn input { flex: 1; }
+
+.select-sm {
+  padding: 6px 10px;
+  background: var(--bg-input); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 0.78rem;
+  cursor: pointer; outline: none;
+}
+.search-input {
+  padding: 7px 12px; flex: 1; min-width: 150px;
+  background: var(--bg-input); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 0.8rem; outline: none;
+}
+.search-input:focus { border-color: var(--neon-cyan); }
+.input-upper { text-transform: uppercase; }
+
+/* GS Config banner */
+.gs-config-banner {
+  background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(0,255,136,0.05));
+  border: 1px solid rgba(0,212,255,0.2);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.gs-config-banner i { color: var(--neon-cyan); font-size: 1.2rem; margin-top: 2px; flex-shrink:0; }
+.gs-config-banner h4 { font-family: var(--font-display); font-size: 0.88rem; font-weight: 700; margin-bottom: 4px; }
+.gs-config-banner p { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.6; }
+.gs-config-banner a { color: var(--neon-cyan); }
+.gs-config-banner.hidden { display: none; }
+
+/* ===== SETTINGS GRID ===== */
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.settings-grid .card { padding: 16px; }
+.settings-grid .card-header { padding: 0 0 12px; border-bottom-color: var(--border); margin-bottom: 12px; }
+.divider { height: 1px; background: var(--border); margin: 12px 0; }
+.danger-label { color: var(--neon-red) !important; }
+.checkbox-group { display: flex; flex-direction: column; gap: 6px; }
+.checkbox-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.78rem; color: var(--text-secondary); cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] { width: auto; cursor: pointer; accent-color: var(--neon-cyan); }
+
+/* Toggle switch */
+.toggle-label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggle-label input { display:none; }
+.toggle-slider {
+  position: relative; width: 36px; height: 20px;
+  background: var(--border-bright); border-radius: 10px;
+  transition: background var(--transition); flex-shrink: 0;
+}
+.toggle-slider::after {
+  content: ''; position: absolute;
+  width: 14px; height: 14px;
+  background: white; border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: transform var(--transition);
+}
+.toggle-label input:checked ~ .toggle-slider { background: var(--neon-cyan); }
+.toggle-label input:checked ~ .toggle-slider::after { transform: translateX(16px); }
+
+/* Order summary */
+.order-summary {
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin: 8px 0;
+}
+.summary-row {
+  display: flex; justify-content: space-between;
+  font-size: 0.78rem; padding: 3px 0; color: var(--text-secondary);
+}
+.summary-row.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 7px; color: var(--text-primary); font-weight: 700; }
+
+/* ===== MODAL ===== */
+.modal {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  align-items: center; justify-content: center;
+}
+.modal.show { display: flex; }
+.modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+}
+.modal-box {
+  position: relative; z-index: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius);
+  width: 90%; max-width: 500px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:none} }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; }
+.modal-body { padding: 16px; }
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 16px; border-top: 1px solid var(--border);
+}
+
+/* ===== TOAST ===== */
+.toast-container { position: fixed; bottom: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--bg-card); border: 1px solid var(--border-bright);
+  color: var(--text-primary); padding: 10px 14px;
+  border-radius: var(--radius-sm); font-size: 0.8rem;
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  animation: toastIn 0.25s ease;
+  max-width: 300px;
+}
+@keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:none} }
+.toast.success { border-color: rgba(0,255,136,0.3); }
+.toast.success i { color: var(--neon-green); }
+.toast.error { border-color: rgba(255,51,85,0.3); }
+.toast.error i { color: var(--neon-red); }
+.toast.info { border-color: rgba(0,212,255,0.3); }
+.toast.info i { color: var(--neon-cyan); }
+.toast.warning { border-color: rgba(255,140,0,0.3); }
+.toast.warning i { color: var(--neon-orange); }
+
+/* ===== ALERTS LIST ===== */
+.alert-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.alert-item:last-child { border-bottom: none; }
+.alert-item.unread { background: rgba(0,212,255,0.03); }
+.alert-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
+.alert-icon.up { background: rgba(0,255,136,0.1); color: var(--neon-green); }
+.alert-icon.down { background: rgba(255,51,85,0.1); color: var(--neon-red); }
+.alert-icon.target { background: rgba(255,140,0,0.1); color: var(--neon-orange); }
+.alert-content { flex: 1; }
+.alert-title { font-size: 0.82rem; font-weight: 600; margin-bottom: 3px; }
+.alert-desc { font-size: 0.73rem; color: var(--text-secondary); }
+.alert-time { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; }
+.unread-dot { width: 7px; height: 7px; background: var(--neon-cyan); border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+
+/* ===== LOADING SPINNER ===== */
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--neon-cyan); border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.fa-spin { animation: spin 0.8s linear infinite; }
+
+/* ===== GS SETUP MODAL ===== */
+.gs-steps { list-style: none; counter-reset: step; }
+.gs-steps li {
+  counter-increment: step;
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 0; font-size: 0.78rem; color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.gs-steps li::before {
+  content: counter(step);
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(0,212,255,0.15); color: var(--neon-cyan);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700; flex-shrink: 0;
+}
+.gs-steps li:last-child { border-bottom: none; }
+.gs-steps a { color: var(--neon-cyan); }
+.code-block {
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  font-size: 0.72rem; color: var(--neon-green);
+  margin: 6px 0; word-break: break-all;
+  cursor: pointer; position: relative;
+}
+.code-block::after {
+  content: 'Click to copy';
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 0.65rem; color: var(--text-muted);
+}
+
+/* ===== REPORT TABLE ===== */
+#page-reports .card { margin-bottom: 14px; }
+
+/* ===== SPIN REFRESH ===== */
+.spinning { animation: spin 0.8s linear infinite; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); width: 260px; }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-close { display: flex; align-items: center; justify-content: center; }
+  .main-wrapper { margin-left: 0; }
+  .menu-toggle { display: inline-flex; }
+  .cards-grid { grid-template-columns: 1fr 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .settings-grid { grid-template-columns: 1fr; }
+  .market-ticker { gap: 6px; }
+  .ticker-item { min-width: 100px; }
+  .data-table th, .data-table td { padding: 7px 8px; font-size: 0.72rem; }
+  .page-actions { gap: 6px; }
+  .gs-config-banner { flex-direction: column; }
+}
+@media (max-width: 400px) {
+  .cards-grid { grid-template-columns: 1fr; }
+  .market-ticker { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <i class="fas fa-chart-line"></i>
+      <div>
+        VN Stock Tracker
+        <span class="logo-sub">POWERED BY GOOGLE SHEETS</span>
+      </div>
+    </div>
+    <button class="sidebar-close" id="sidebarClose"><i class="fas fa-times"></i></button>
+  </div>
+  <ul class="nav-menu">
+    <li class="nav-item active" data-page="dashboard"><i class="fas fa-tachometer-alt"></i><span>Tổng quan</span></li>
+    <li class="nav-item" data-page="watchlist"><i class="fas fa-star"></i><span>Danh mục quan tâm</span></li>
+    <li class="nav-item" data-page="portfolio"><i class="fas fa-briefcase"></i><span>Danh mục đầu tư</span></li>
+    <li class="nav-item" data-page="orders"><i class="fas fa-exchange-alt"></i><span>Nhật ký lệnh</span></li>
+    <li class="nav-item" data-page="alerts"><i class="fas fa-bell"></i><span>Cảnh báo <span class="badge" id="alertBadge" style="display:none">0</span></span></li>
+    <li class="nav-item" data-page="reports"><i class="fas fa-chart-bar"></i><span>Báo cáo</span></li>
+    <li class="nav-item" data-page="settings"><i class="fas fa-cog"></i><span>Cài đặt</span></li>
+  </ul>
+  <div class="sidebar-footer">
+    <div class="sync-status" id="syncStatus">
+      <i class="fas fa-circle sync-dot" id="syncDot"></i>
+      <span id="syncText">Đang kết nối...</span>
+    </div>
+    <button class="btn-icon" id="themeToggle" title="Đổi giao diện">
+      <i class="fas fa-moon" id="themeIcon"></i>
+    </button>
+  </div>
+</nav>
+
+<div class="overlay" id="overlay"></div>
+
+<!-- MAIN -->
+<div class="main-wrapper">
+  <header class="topbar">
+    <button class="btn-icon menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
+    <div class="topbar-title" id="pageTitle">Tổng quan</div>
+    <div class="topbar-actions">
+      <button class="btn-icon" id="refreshBtn" title="Làm mới">
+        <i class="fas fa-sync-alt" id="refreshIcon"></i>
+      </button>
+      <button class="btn-icon" id="setupGSBtn" title="Cài đặt Google Sheets">
+        <i class="fab fa-google"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- GS Config Banner -->
+    <div class="gs-config-banner" id="gsConfigBanner">
+      <i class="fab fa-google"></i>
+      <div>
+        <h4>⚡ Kết nối Google Sheets để lưu dữ liệu</h4>
+        <p>Dán <strong>Google Apps Script Web App URL</strong> vào <a href="#" onclick="showPage('settings');return false;">Cài đặt → Google Sheets</a> để đồng bộ dữ liệu miễn phí. <a href="#" onclick="openGSModal();return false;">Xem hướng dẫn →</a></p>
+      </div>
+    </div>
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="page active" id="page-dashboard">
+      <div class="market-ticker" id="marketTicker">
+        <div class="ticker-item">
+          <span class="ticker-name">VN-INDEX</span>
+          <span class="ticker-price" id="tick-VNINDEX">--</span>
+          <span class="ticker-change" id="tick-VNINDEX-chg">--</span>
+        </div>
+        <div class="ticker-item">
+          <span class="ticker-name">HNX</span>
+          <span class="ticker-price" id="tick-HNX">--</span>
+          <span class="ticker-change" id="tick-HNX-chg">--</span>
+        </div>
+        <div class="ticker-item">
+          <span class="ticker-name">UPCOM</span>
+          <span class="ticker-price" id="tick-UPCOM">--</span>
+          <span class="ticker-change" id="tick-UPCOM-chg">--</span>
+        </div>
+      </div>
+      <div class="cards-grid">
+        <div class="card summary-card">
+          <div class="card-icon green"><i class="fas fa-briefcase"></i></div>
+          <div class="card-info">
+            <div class="card-label">Giá trị danh mục</div>
+            <div class="card-value" id="portfolioValue">--</div>
+            <div class="card-sub" id="portfolioPnL">--</div>
+          </div>
+        </div>
+        <div class="card summary-card">
+          <div class="card-icon blue"><i class="fas fa-chart-line"></i></div>
+          <div class="card-info">
+            <div class="card-label">Lãi/Lỗ hôm nay</div>
+            <div class="card-value" id="todayPnL">--</div>
+            <div class="card-sub" id="todayPnLPct">--</div>
+          </div>
+        </div>
+        <div class="card summary-card">
+          <div class="card-icon orange"><i class="fas fa-bell"></i></div>
+          <div class="card-info">
+            <div class="card-label">Cảnh báo hôm nay</div>
+            <div class="card-value" id="alertsToday">0</div>
+            <div class="card-sub">chưa đọc</div>
+          </div>
+        </div>
+        <div class="card summary-card">
+          <div class="card-icon purple"><i class="fas fa-star"></i></div>
+          <div class="card-info">
+            <div class="card-label">Mã theo dõi</div>
+            <div class="card-value" id="watchlistCount">0</div>
+            <div class="card-sub">mã chứng khoán</div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <h3><i class="fas fa-table"></i> Giá thị trường hôm nay</h3>
+          <span class="last-update" id="lastUpdate">--</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr>
+              <th>Mã CK</th><th>Giá</th><th>+/-</th><th>%</th>
+              <th>KL (tr.cp)</th><th>Trạng thái</th>
+            </tr></thead>
+            <tbody id="dashboardTableBody">
+              <tr><td colspan="6" class="empty-state"><span class="spinner"></span> Đang tải...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fas fa-chart-area"></i> Biểu đồ giá</h3>
+          <select class="select-sm" id="chartSymbolSelect"><option value="">-- Chọn mã --</option></select>
+        </div>
+        <div style="height:260px;position:relative;padding:12px;">
+          <canvas id="priceChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== WATCHLIST ===== -->
+    <div class="page" id="page-watchlist">
+      <div class="page-actions">
+        <button class="btn btn-primary" id="addWatchlistBtn"><i class="fas fa-plus"></i> Thêm mã</button>
+        <input type="text" class="search-input" placeholder="🔍 Tìm mã CK..." id="watchlistSearch" />
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr>
+              <th>Mã CK</th><th>Tên</th><th>Giá</th><th>%</th>
+              <th>Mua MT</th><th>Bán MT</th><th>Alert±%</th><th>Thao tác</th>
+            </tr></thead>
+            <tbody id="watchlistTableBody">
+              <tr><td colspan="8" class="empty-state">Chưa có mã nào. Nhấn "Thêm mã" để bắt đầu.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PORTFOLIO ===== -->
+    <div class="page" id="page-portfolio">
+      <div class="page-actions">
+        <button class="btn btn-primary" id="addPositionBtn"><i class="fas fa-plus"></i> Thêm vị thế</button>
+      </div>
+      <div class="cards-grid">
+        <div class="card summary-card">
+          <div class="card-icon green"><i class="fas fa-wallet"></i></div>
+          <div class="card-info"><div class="card-label">Tổng vốn đầu tư</div><div class="card-value" id="ptTotalCost">--</div></div>
+        </div>
+        <div class="card summary-card">
+          <div class="card-icon blue"><i class="fas fa-chart-pie"></i></div>
+          <div class="card-info"><div class="card-label">Giá trị thị trường</div><div class="card-value" id="ptMarketValue">--</div></div>
+        </div>
+        <div class="card summary-card">
+          <div class="card-icon" id="pnlIcon"><i class="fas fa-arrow-trend-up"></i></div>
+          <div class="card-info">
+            <div class="card-label">Lãi/Lỗ chưa TH</div>
+            <div class="card-value" id="ptUnrealizedPnL">--</div>
+            <div class="card-sub" id="ptUnrealizedPct">--</div>
+          </div>
+        </div>
+        <div class="card summary-card">
+          <div class="card-icon purple"><i class="fas fa-check-circle"></i></div>
+          <div class="card-info"><div class="card-label">Lãi/Lỗ đã TH</div><div class="card-value" id="ptRealizedPnL">--</div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><h3><i class="fas fa-briefcase"></i> Vị thế đang nắm</h3></div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr><th>Mã</th><th>SL</th><th>Giá vốn TB</th><th>Giá TT</th><th>GT TT</th><th>L/L</th><th>%L/L</th><th>Thao tác</th></tr></thead>
+            <tbody id="portfolioTableBody"><tr><td colspan="8" class="empty-state">Chưa có vị thế nào.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3><i class="fas fa-chart-pie"></i> Phân bổ danh mục</h3></div>
+        <div style="height:260px;position:relative;padding:12px;">
+          <canvas id="portfolioChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ORDERS ===== -->
+    <div class="page" id="page-orders">
+      <div class="page-actions">
+        <button class="btn btn-success" id="addBuyOrderBtn"><i class="fas fa-arrow-up"></i> Đặt lệnh Mua</button>
+        <button class="btn btn-danger" id="addSellOrderBtn"><i class="fas fa-arrow-down"></i> Đặt lệnh Bán</button>
+        <select class="select-sm" id="orderFilter">
+          <option value="all">Tất cả lệnh</option>
+          <option value="pending">Chờ khớp</option>
+          <option value="filled">Đã khớp</option>
+          <option value="cancelled">Đã huỷ</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h3><i class="fas fa-exchange-alt"></i> Nhật ký lệnh (Giả lập)</h3>
+          <span class="badge-info">Không giao dịch thật</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr><th>Thời gian</th><th>Mã</th><th>Loại</th><th>Giá đặt</th><th>KL</th><th>Trạng thái</th><th>L/L</th><th>Thao tác</th></tr></thead>
+            <tbody id="ordersTableBody"><tr><td colspan="8" class="empty-state">Chưa có lệnh nào.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ALERTS ===== -->
+    <div class="page" id="page-alerts">
+      <div class="page-actions">
+        <button class="btn btn-secondary" id="markAllReadBtn"><i class="fas fa-check-double"></i> Đánh dấu đã đọc</button>
+        <button class="btn btn-outline-danger" id="clearAlertsBtn"><i class="fas fa-trash"></i> Xoá cũ</button>
+      </div>
+      <div class="card" id="alertsContainer">
+        <div class="empty-state">Chưa có cảnh báo nào.</div>
+      </div>
+    </div>
+
+    <!-- ===== REPORTS ===== -->
+    <div class="page" id="page-reports">
+      <div class="page-actions">
+        <select class="select-sm" id="reportPeriod">
+          <option value="7">7 ngày qua</option>
+          <option value="30" selected>30 ngày qua</option>
+          <option value="90">3 tháng</option>
+          <option value="365">1 năm</option>
+        </select>
+        <button class="btn btn-primary" id="generateReportBtn"><i class="fas fa-chart-bar"></i> Tạo báo cáo</button>
+        <button class="btn btn-secondary" id="sendReportTelegramBtn"><i class="fab fa-telegram"></i> Gửi Telegram</button>
+      </div>
+      <div class="cards-grid">
+        <div class="card summary-card"><div class="card-icon green"><i class="fas fa-arrow-up"></i></div><div class="card-info"><div class="card-label">Tổng lệnh mua</div><div class="card-value" id="rpt-buy">--</div></div></div>
+        <div class="card summary-card"><div class="card-icon red"><i class="fas fa-arrow-down"></i></div><div class="card-info"><div class="card-label">Tổng lệnh bán</div><div class="card-value" id="rpt-sell">--</div></div></div>
+        <div class="card summary-card"><div class="card-icon blue"><i class="fas fa-coins"></i></div><div class="card-info"><div class="card-label">Tổng lãi/lỗ</div><div class="card-value" id="rpt-pnl">--</div></div></div>
+        <div class="card summary-card"><div class="card-icon orange"><i class="fas fa-percent"></i></div><div class="card-info"><div class="card-label">Tỷ lệ thắng</div><div class="card-value" id="rpt-winrate">--</div></div></div>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><h3><i class="fas fa-chart-line"></i> Lãi/Lỗ theo thời gian</h3></div>
+        <div style="height:280px;position:relative;padding:12px;"><canvas id="pnlChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3><i class="fas fa-trophy"></i> Hiệu suất theo mã</h3></div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr><th>Mã CK</th><th>Số lệnh</th><th>Lãi/Lỗ</th><th>Win rate</th></tr></thead>
+            <tbody id="symbolPerformanceBody"><tr><td colspan="4" class="empty-state">Chưa có dữ liệu.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div class="page" id="page-settings">
+      <div class="settings-grid">
+
+        <!-- Google Sheets -->
+        <div class="card">
+          <div class="card-header"><h3><i class="fab fa-google"></i> Google Sheets (Lưu dữ liệu)</h3></div>
+          <div class="form-group">
+            <label>Apps Script Web App URL</label>
+            <input type="text" id="gsWebAppUrl" placeholder="https://script.google.com/macros/s/..." />
+            <p class="form-hint">Deploy Google Apps Script → lấy URL rồi dán vào đây. <a href="#" onclick="openGSModal();return false;">Xem hướng dẫn setup</a></p>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-primary" id="saveGSBtn"><i class="fas fa-save"></i> Lưu</button>
+            <button class="btn btn-secondary" id="testGSBtn"><i class="fas fa-plug"></i> Test kết nối</button>
+          </div>
+          <div id="gsStatus" style="margin-top:8px;font-size:0.75rem;color:var(--text-muted);"></div>
+        </div>
+
+        <!-- Telegram -->
+        <div class="card">
+          <div class="card-header"><h3><i class="fab fa-telegram"></i> Telegram Bot</h3></div>
+          <div class="form-group">
+            <label>Bot Token</label>
+            <div class="input-with-btn">
+              <input type="password" id="telegramToken" placeholder="1234567890:ABCdefGHIjklMNOpqrSTUVwxyz" />
+              <button class="btn btn-sm btn-secondary" id="toggleToken"><i class="fas fa-eye"></i></button>
+            </div>
+            <p class="form-hint">Tạo bot từ <a href="https://t.me/BotFather" target="_blank">@BotFather</a></p>
+          </div>
+          <div class="form-group">
+            <label>Chat ID</label>
+            <input type="text" id="telegramChatId" placeholder="-100xxxxxxxxx" />
+            <p class="form-hint">Lấy từ <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a></p>
+          </div>
+          <div class="form-group">
+            <label>Thông báo khi</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label"><input type="checkbox" id="notif-price-alert" checked /> Giá vượt ngưỡng cảnh báo</label>
+              <label class="checkbox-label"><input type="checkbox" id="notif-target-hit" checked /> Đạt giá mục tiêu</label>
+              <label class="checkbox-label"><input type="checkbox" id="notif-order-filled" checked /> Lệnh khớp (giả lập)</label>
+              <label class="checkbox-label"><input type="checkbox" id="notif-daily-report" checked /> Báo cáo cuối ngày</label>
+            </div>
+          </div>
+          <div class="form-row">
+            <button class="btn btn-primary" id="saveTelegramBtn"><i class="fas fa-save"></i> Lưu</button>
+            <button class="btn btn-secondary" id="testTelegramBtn"><i class="fas fa-paper-plane"></i> Test</button>
+          </div>
+        </div>
+
+        <!-- Schedule -->
+        <div class="card">
+          <div class="card-header"><h3><i class="fas fa-clock"></i> Tự động cập nhật</h3></div>
+          <div class="form-group">
+            <label>Cập nhật giá mỗi (phút)</label>
+            <select id="refreshInterval">
+              <option value="1">1 phút</option>
+              <option value="5" selected>5 phút</option>
+              <option value="10">10 phút</option>
+              <option value="30">30 phút</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Báo cáo cuối ngày lúc</label>
+            <input type="time" id="dailyReportTime" value="17:00" />
+          </div>
+          <div class="form-group">
+            <div class="checkbox-group">
+              <label class="checkbox-label"><input type="checkbox" id="enableDailyReport" checked /> Bật báo cáo hàng ngày</label>
+              <label class="checkbox-label"><input type="checkbox" id="enableWeeklyReport" checked /> Bật báo cáo hàng tuần</label>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="saveScheduleBtn"><i class="fas fa-save"></i> Lưu lịch</button>
+        </div>
+
+        <!-- Alert Defaults -->
+        <div class="card">
+          <div class="card-header"><h3><i class="fas fa-bell"></i> Ngưỡng cảnh báo mặc định</h3></div>
+          <div class="form-row">
+            <div class="form-group"><label>Alert tăng (%)</label><input type="number" id="defaultAlertUpper" value="5" min="0.1" max="50" step="0.1" /></div>
+            <div class="form-group"><label>Alert giảm (%)</label><input type="number" id="defaultAlertLower" value="3" min="0.1" max="50" step="0.1" /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Phí mua (%)</label><input type="number" id="buyFee" value="0.15" min="0" max="1" step="0.01" /></div>
+            <div class="form-group"><label>Phí bán (%)</label><input type="number" id="sellFee" value="0.25" min="0" max="1" step="0.01" /></div>
+          </div>
+          <div class="form-group"><label>Thuế bán (%)</label><input type="number" id="sellTax" value="0.1" min="0" max="1" step="0.01" /></div>
+          <button class="btn btn-primary" id="saveAlertSettingsBtn"><i class="fas fa-save"></i> Lưu</button>
+        </div>
+
+        <!-- Data Management -->
+        <div class="card">
+          <div class="card-header"><h3><i class="fas fa-database"></i> Quản lý dữ liệu</h3></div>
+          <div class="form-group">
+            <label>Xuất dữ liệu</label>
+            <div class="btn-group">
+              <button class="btn btn-secondary" id="exportAllBtn"><i class="fas fa-download"></i> Xuất tất cả (JSON)</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Nhập dữ liệu (JSON backup)</label>
+            <input type="file" id="importData" accept=".json" />
+          </div>
+          <div class="divider"></div>
+          <div class="form-group">
+            <label class="danger-label">Vùng nguy hiểm</label>
+            <button class="btn btn-outline-danger" id="clearAllDataBtn"><i class="fas fa-trash"></i> Xoá toàn bộ dữ liệu local</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Watchlist Modal -->
+<div class="modal" id="watchlistModal">
+  <div class="modal-backdrop" onclick="closeModal('watchlistModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="watchlistModalTitle">Thêm mã theo dõi</h3>
+      <button class="btn-icon" onclick="closeModal('watchlistModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="wl-id" />
+      <div class="form-group"><label>Mã chứng khoán *</label><input type="text" id="wl-symbol" placeholder="VD: VNM, VIC, HPG..." class="input-upper" maxlength="10" /></div>
+      <div class="form-group"><label>Tên công ty</label><input type="text" id="wl-name" placeholder="Tên công ty..." /></div>
+      <div class="form-group"><label>Ngành</label><input type="text" id="wl-sector" placeholder="VD: Ngân hàng, Thực phẩm..." /></div>
+      <div class="form-row">
+        <div class="form-group"><label>Alert tăng (%)</label><input type="number" id="wl-alert-upper" placeholder="5" min="0" max="50" step="0.1" /></div>
+        <div class="form-group"><label>Alert giảm (%)</label><input type="number" id="wl-alert-lower" placeholder="3" min="0" max="50" step="0.1" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Giá mua mục tiêu</label><input type="number" id="wl-target-buy" placeholder="0" min="0" /></div>
+        <div class="form-group"><label>Giá bán mục tiêu</label><input type="number" id="wl-target-sell" placeholder="0" min="0" /></div>
+      </div>
+      <div class="form-group"><label>Ghi chú</label><textarea id="wl-note" placeholder="Ghi chú..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('watchlistModal')">Huỷ</button>
+      <button class="btn btn-primary" id="saveWatchlistBtn">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Order Modal -->
+<div class="modal" id="orderModal">
+  <div class="modal-backdrop" onclick="closeModal('orderModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="orderModalTitle">Đặt lệnh Mua</h3>
+      <button class="btn-icon" onclick="closeModal('orderModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="order-type" value="buy" />
+      <div class="form-group"><label>Mã chứng khoán *</label><input type="text" id="order-symbol" class="input-upper" placeholder="VD: VNM" maxlength="10" /></div>
+      <div class="form-row">
+        <div class="form-group"><label>Giá đặt (VND) *</label><input type="number" id="order-price" placeholder="Giá đặt" min="0" /></div>
+        <div class="form-group"><label>Khối lượng *</label><input type="number" id="order-quantity" placeholder="Số lượng" min="100" step="100" /></div>
+      </div>
+      <div class="form-group">
+        <label>Khớp ngay theo giá thị trường?</label>
+        <label class="toggle-label">
+          <input type="checkbox" id="order-fill-now" />
+          <span class="toggle-slider"></span>
+          <span id="fill-now-text">Không (chờ khớp)</span>
+        </label>
+      </div>
+      <div class="order-summary" id="orderSummary">
+        <div class="summary-row"><span>Tổng giá trị:</span><span id="orderTotal">--</span></div>
+        <div class="summary-row"><span>Phí GD:</span><span id="orderFee">--</span></div>
+        <div class="summary-row total"><span>Tổng cộng:</span><span id="orderGrandTotal">--</span></div>
+      </div>
+      <div class="form-group"><label>Ghi chú</label><input type="text" id="order-note" placeholder="Lý do đặt lệnh..." /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('orderModal')">Huỷ</button>
+      <button class="btn btn-primary" id="saveOrderBtn">Xác nhận lệnh</button>
+    </div>
+  </div>
+</div>
+
+<!-- Position Modal -->
+<div class="modal" id="positionModal">
+  <div class="modal-backdrop" onclick="closeModal('positionModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Thêm/Cập nhật vị thế</h3>
+      <button class="btn-icon" onclick="closeModal('positionModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pos-id" />
+      <div class="form-group"><label>Mã chứng khoán *</label><input type="text" id="pos-symbol" class="input-upper" placeholder="VD: VNM" maxlength="10" /></div>
+      <div class="form-row">
+        <div class="form-group"><label>Số lượng *</label><input type="number" id="pos-quantity" placeholder="100" min="0" step="100" /></div>
+        <div class="form-group"><label>Giá vốn TB (VND) *</label><input type="number" id="pos-avg-cost" placeholder="Giá vốn trung bình" min="0" /></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('positionModal')">Huỷ</button>
+      <button class="btn btn-primary" id="savePositionBtn">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<!-- GS Setup Guide Modal -->
+<div class="modal" id="gsModal">
+  <div class="modal-backdrop" onclick="closeModal('gsModal')"></div>
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-header">
+      <h3><i class="fab fa-google" style="color:var(--neon-cyan);margin-right:8px"></i>Hướng dẫn cài đặt Google Sheets</h3>
+      <button class="btn-icon" onclick="closeModal('gsModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:12px">Làm theo các bước sau để lưu dữ liệu vào Google Sheets <strong>miễn phí, không cần API key</strong>:</p>
+      <ol class="gs-steps">
+        <li>Mở <a href="https://docs.google.com/spreadsheets/create" target="_blank">Google Sheets</a> → tạo spreadsheet mới, đặt tên tuỳ ý</li>
+        <li>Trong spreadsheet: <strong>Extensions → Apps Script</strong></li>
+        <li>Xoá code cũ, dán toàn bộ nội dung script bên dưới vào</li>
+        <li>Nhấn <strong>Deploy → New deployment → Web app</strong></li>
+        <li>Execute as: <strong>Me</strong> | Who has access: <strong>Anyone</strong> → Deploy</li>
+        <li>Copy <strong>Web app URL</strong> → dán vào Cài đặt → Apps Script URL</li>
+        <li>Lần đầu sẽ hỏi quyền → nhấn <strong>Authorize access</strong></li>
+      </ol>
+      <div style="margin-top:12px">
+        <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px;font-weight:600">📋 Apps Script Code (click để copy):</p>
+        <div class="code-block" id="gasCodeBlock" onclick="copyGASCode()">
+          // Click để copy toàn bộ code Apps Script...
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="copyGASCode()"><i class="fas fa-copy"></i> Copy Apps Script Code</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('gsModal')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  VN STOCK TRACKER — Complete JavaScript
+//  Google Sheets backend via Apps Script Web App
+// ============================================================
+
+// ─── APPS SCRIPT CODE (to deploy) ───────────────────────────
+const GAS_CODE = `
+function doGet(e) {
+  return handleRequest(e);
+}
+function doPost(e) {
+  return handleRequest(e);
+}
+function handleRequest(e) {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST",
+    "Content-Type": "application/json"
+  };
+  try {
+    const params = e.parameter || {};
+    const postData = e.postData ? JSON.parse(e.postData.contents || '{}') : {};
+    const data = Object.assign({}, params, postData);
+    const action = data.action;
+    const sheet = data.sheet;
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    if (action === 'ping') {
+      return ContentService.createTextOutput(JSON.stringify({ok:true,msg:'Connected!'}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    if (action === 'getAll') {
+      const sh = getOrCreateSheet(ss, sheet);
+      const rows = sh.getDataRange().getValues();
+      if (rows.length <= 1) return ok([]);
+      const headers = rows[0];
+      const result = rows.slice(1).map(r => {
+        const obj = {};
+        headers.forEach((h,i) => obj[h] = r[i]);
+        return obj;
+      });
+      return ok(result);
+    }
+    if (action === 'upsert') {
+      const sh = getOrCreateSheet(ss, sheet);
+      const record = data.record ? JSON.parse(data.record) : postData.record;
+      upsertRow(sh, record);
+      return ok({saved: true});
+    }
+    if (action === 'delete') {
+      const sh = getOrCreateSheet(ss, sheet);
+      deleteRow(sh, data.id);
+      return ok({deleted: true});
+    }
+    if (action === 'batchUpsert') {
+      const sh = getOrCreateSheet(ss, sheet);
+      const records = data.records ? JSON.parse(data.records) : postData.records;
+      records.forEach(r => upsertRow(sh, r));
+      return ok({saved: records.length});
+    }
+    return ok({error: 'Unknown action'});
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+function ok(data) {
+  return ContentService.createTextOutput(JSON.stringify({ok:true,data:data}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+function getOrCreateSheet(ss, name) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) { sh = ss.insertSheet(name); }
+  return sh;
+}
+function upsertRow(sh, record) {
+  const allVals = sh.getDataRange().getValues();
+  const headers = allVals[0] || [];
+  // Ensure all keys exist as headers
+  const keys = Object.keys(record);
+  keys.forEach(k => { if (!headers.includes(k)) { headers.push(k); } });
+  if (allVals.length === 0) { sh.appendRow(headers); }
+  else { sh.getRange(1,1,1,headers.length).setValues([headers]); }
+  // Find row by id
+  const idIdx = headers.indexOf('id');
+  let rowIdx = -1;
+  if (idIdx >= 0 && record.id !== undefined) {
+    for (let i = 1; i < allVals.length; i++) {
+      if (String(allVals[i][idIdx]) === String(record.id)) { rowIdx = i+1; break; }
+    }
+  }
+  const rowData = headers.map(h => record[h] !== undefined ? record[h] : '');
+  if (rowIdx > 0) { sh.getRange(rowIdx,1,1,headers.length).setValues([rowData]); }
+  else { sh.appendRow(rowData); }
+}
+function deleteRow(sh, id) {
+  const allVals = sh.getDataRange().getValues();
+  if (allVals.length <= 1) return;
+  const headers = allVals[0];
+  const idIdx = headers.indexOf('id');
+  if (idIdx < 0) return;
+  for (let i = allVals.length-1; i >= 1; i--) {
+    if (String(allVals[i][idIdx]) === String(id)) { sh.deleteRow(i+1); break; }
+  }
+}
+`.trim();
+
+// ─── CONFIG ─────────────────────────────────────────────────
+const CONFIG_KEY = 'vnstock_config_v2';
+let config = {
+  gsUrl: '', telegramToken: '', telegramChatId: '',
+  refreshInterval: 5, defaultAlertUpper: 5, defaultAlertLower: 3,
+  buyFee: 0.15, sellFee: 0.25, sellTax: 0.1,
+  dailyReportTime: '17:00', enableDailyReport: true, enableWeeklyReport: true,
+  notifPriceAlert: true, notifTargetHit: true, notifOrderFilled: true, notifDailyReport: true,
+  theme: 'dark'
+};
+
+// ─── LOCAL DATA (fallback khi chưa có GS) ───────────────────
+const LOCAL_KEY = 'vnstock_data_v2';
+let localData = { watchlist: [], portfolio: [], orders: [], alerts: [], priceHistory: {} };
+
+// ─── PRICE CACHE ─────────────────────────────────────────────
+let priceCache = {}; // { symbol: { price, change, changePct, volume, time } }
+let priceChart = null, portfolioChart = null, pnlChart = null;
+let refreshTimer = null;
+
+// ─── UTILS ──────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt = (n, d=0) => n == null ? '--' : Number(n).toLocaleString('vi-VN', {minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtMoney = n => n == null ? '--' : fmt(n) + '₫';
+const fmtPct = n => n == null ? '--' : (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const now = () => new Date().toISOString();
+const today = () => new Date().toISOString().slice(0,10);
+
+function toast(msg, type='info', dur=3000) {
+  const icons = {success:'fas fa-check-circle',error:'fas fa-times-circle',info:'fas fa-info-circle',warning:'fas fa-exclamation-triangle'};
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i class="${icons[type]||icons.info}"></i><span>${msg}</span>`;
+  $('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), dur);
+}
+
+function openModal(id) { $(id).classList.add('show'); }
+function closeModal(id) { $(id).classList.remove('show'); }
+
+// ─── CONFIG LOAD/SAVE ────────────────────────────────────────
+function loadConfig() {
+  try { const s=localStorage.getItem(CONFIG_KEY); if(s) config=Object.assign(config,JSON.parse(s)); } catch(e){}
+  applyConfig();
+}
+function saveConfig() {
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+}
+function applyConfig() {
+  document.documentElement.setAttribute('data-theme', config.theme || 'dark');
+  $('themeIcon').className = config.theme==='light' ? 'fas fa-sun' : 'fas fa-moon';
+  if($('gsWebAppUrl')) $('gsWebAppUrl').value = config.gsUrl || '';
+  if($('telegramToken')) $('telegramToken').value = config.telegramToken || '';
+  if($('telegramChatId')) $('telegramChatId').value = config.telegramChatId || '';
+  if($('refreshInterval')) $('refreshInterval').value = config.refreshInterval || 5;
+  if($('defaultAlertUpper')) $('defaultAlertUpper').value = config.defaultAlertUpper || 5;
+  if($('defaultAlertLower')) $('defaultAlertLower').value = config.defaultAlertLower || 3;
+  if($('buyFee')) $('buyFee').value = config.buyFee || 0.15;
+  if($('sellFee')) $('sellFee').value = config.sellFee || 0.25;
+  if($('sellTax')) $('sellTax').value = config.sellTax || 0.1;
+  if($('dailyReportTime')) $('dailyReportTime').value = config.dailyReportTime || '17:00';
+  if($('enableDailyReport')) $('enableDailyReport').checked = config.enableDailyReport !== false;
+  if($('enableWeeklyReport')) $('enableWeeklyReport').checked = config.enableWeeklyReport !== false;
+  // Update GS banner
+  if($('gsConfigBanner')) {
+    $('gsConfigBanner').classList.toggle('hidden', !!config.gsUrl);
+  }
+}
+
+// ─── LOCAL DATA ──────────────────────────────────────────────
+function loadLocalData() {
+  try { const s=localStorage.getItem(LOCAL_KEY); if(s) localData=Object.assign(localData,JSON.parse(s)); } catch(e){}
+}
+function saveLocalData() {
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(localData));
+}
+
+// ─── GOOGLE SHEETS API ───────────────────────────────────────
+async function gsCall(params) {
+  if (!config.gsUrl) return null;
+  try {
+    const url = config.gsUrl + '?t=' + Date.now();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(params)
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'GS error');
+    return json.data;
+  } catch(e) {
+    console.warn('GS error:', e.message);
+    return null;
+  }
+}
+
+async function gsGetAll(sheet) {
+  const data = await gsCall({action:'getAll', sheet});
+  return data || null;
+}
+async function gsUpsert(sheet, record) {
+  return await gsCall({action:'upsert', sheet, record: JSON.stringify(record)});
+}
+async function gsDelete(sheet, id) {
+  return await gsCall({action:'delete', sheet, id: String(id)});
+}
+
+// ─── DATA ACCESS (GS + local fallback) ───────────────────────
+async function getData(key) {
+  if (config.gsUrl) {
+    const rows = await gsGetAll(key);
+    if (rows !== null) {
+      localData[key] = rows;
+      saveLocalData();
+      return rows;
+    }
+  }
+  return localData[key] || [];
+}
+async function saveRecord(key, record) {
+  if (!record.id) record.id = uid();
+  // local
+  const arr = localData[key] || [];
+  const idx = arr.findIndex(r => r.id === record.id);
+  if (idx >= 0) arr[idx] = record; else arr.push(record);
+  localData[key] = arr;
+  saveLocalData();
+  // GS async
+  if (config.gsUrl) gsUpsert(key, record);
+  return record;
+}
+async function deleteRecord(key, id) {
+  localData[key] = (localData[key]||[]).filter(r => r.id !== id);
+  saveLocalData();
+  if (config.gsUrl) gsDelete(key, id);
+}
+
+// ─── PRICE FETCHING ──────────────────────────────────────────
+async function fetchPrice(symbol) {
+  // Try TCBS API
+  try {
+    const res = await fetch(`https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/quote?symbol=${symbol}&resolution=1D&from=${Math.floor(Date.now()/1000-86400)}&to=${Math.floor(Date.now()/1000)}`, {signal:AbortSignal.timeout(5000)});
+    const json = await res.json();
+    if (json.data && json.data.length > 0) {
+      const d = json.data[json.data.length-1];
+      return { price: d.close, open: d.open, high: d.high, low: d.low, volume: d.volume, change: d.close - d.open, changePct: ((d.close - d.open)/d.open)*100, time: new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) };
+    }
+  } catch(e) {}
+  // Try Fireant
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    const res = await fetch(`https://restv2.fireant.vn/symbols/${symbol}/historical-quotes?startDate=${yesterday}&endDate=${today}&offset=0&limit=2`, {signal:AbortSignal.timeout(5000)});
+    const json = await res.json();
+    if (json && json.length > 0) {
+      const d = json[0];
+      const price = d.priceClose || d.price || d.close;
+      const open = d.priceOpen || d.open || price;
+      return { price, open, high: d.priceHigh||price, low: d.priceLow||price, volume: d.totalVolume||d.volume||0, change: price-open, changePct: ((price-open)/open)*100, time: new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) };
+    }
+  } catch(e) {}
+  // Simulation fallback
+  const prev = priceCache[symbol];
+  const base = prev ? prev.price : (Math.random()*80000+20000);
+  const chgPct = (Math.random()-0.5)*0.04; // ±2%
+  const price = Math.round(base * (1+chgPct) / 100) * 100;
+  return { price, open: base, volume: Math.round(Math.random()*5000000), change: price-base, changePct: chgPct*100, time: new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}), simulated: true };
+}
+
+async function fetchIndexPrice(index) {
+  try {
+    const symbolMap = {'VNINDEX':'VNINDEX','HNX':'HNX','UPCOM':'UPCOM'};
+    const res = await fetch(`https://apipubaws.tcbs.com.vn/stock-insight/v1/index/historical-hose-index?resolution=1D&from=${Math.floor(Date.now()/1000-86400)}&to=${Math.floor(Date.now()/1000)}&code=${symbolMap[index]}`, {signal:AbortSignal.timeout(5000)});
+    const json = await res.json();
+    if (json.data && json.data.length > 0) {
+      const d = json.data[json.data.length-1];
+      return { price: d.closeIndex||d.close, change: (d.closeIndex||d.close)-(d.openIndex||d.open), changePct: (((d.closeIndex||d.close)-(d.openIndex||d.open))/(d.openIndex||d.open))*100 };
+    }
+  } catch(e) {}
+  const bases = {'VNINDEX':1250,'HNX':230,'UPCOM':95};
+  const base = bases[index] || 100;
+  const chg = (Math.random()-0.48)*0.012*base;
+  return { price: base+chg, change: chg, changePct: (chg/base)*100, simulated:true };
+}
+
+async function refreshAllPrices() {
+  const icon = $('refreshIcon');
+  icon.classList.add('spinning');
+  setSyncStatus('syncing', 'Đang cập nhật...');
+
+  // Fetch indices
+  for (const idx of ['VNINDEX','HNX','UPCOM']) {
+    const d = await fetchIndexPrice(idx);
+    const priceEl = $(`tick-${idx}`);
+    const chgEl = $(`tick-${idx}-chg`);
+    if (priceEl) priceEl.textContent = fmt(d.price, 2);
+    if (chgEl) {
+      chgEl.textContent = fmtPct(d.changePct);
+      chgEl.className = 'ticker-change ' + (d.changePct >= 0 ? 'pos' : 'neg');
+    }
+  }
+
+  // Fetch watchlist prices
+  const watchlist = localData.watchlist || [];
+  for (const item of watchlist) {
+    if (!item.symbol) continue;
+    const d = await fetchPrice(item.symbol);
+    if (d) {
+      priceCache[item.symbol] = d;
+      checkAlerts(item, d);
+    }
+  }
+  // Portfolio
+  for (const pos of (localData.portfolio||[])) {
+    if (!priceCache[pos.symbol] && pos.symbol) {
+      const d = await fetchPrice(pos.symbol);
+      if (d) priceCache[pos.symbol] = d;
+    }
+  }
+
+  $('lastUpdate').textContent = 'Cập nhật: ' + new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
+  icon.classList.remove('spinning');
+  setSyncStatus('ok', config.gsUrl ? 'Google Sheets ✓' : 'Lưu local');
+
+  // Check pending orders
+  checkPendingOrders();
+  // Re-render current page
+  renderCurrentPage();
+}
+
+// ─── ALERTS ──────────────────────────────────────────────────
+function checkAlerts(item, priceData) {
+  const ref = priceData.open || priceData.price;
+  const price = priceData.price;
+  const changePct = priceData.changePct;
+  const alertKey = `${today()}_${item.symbol}`;
+
+  if (item.alertUpper > 0 && changePct >= item.alertUpper) {
+    const key = alertKey + '_up';
+    if (!localStorage.getItem(key)) {
+      addAlert({ type:'up', symbol:item.symbol, msg:`${item.symbol} tăng ${fmtPct(changePct)} (ngưỡng +${item.alertUpper}%)`, price });
+      localStorage.setItem(key, '1');
+      sendTelegram(`🚀 *${item.symbol}* tăng *${fmtPct(changePct)}* - Giá: ${fmtMoney(price)}`);
+    }
+  }
+  if (item.alertLower > 0 && changePct <= -item.alertLower) {
+    const key = alertKey + '_down';
+    if (!localStorage.getItem(key)) {
+      addAlert({ type:'down', symbol:item.symbol, msg:`${item.symbol} giảm ${fmtPct(changePct)} (ngưỡng -${item.alertLower}%)`, price });
+      localStorage.setItem(key, '1');
+      sendTelegram(`📉 *${item.symbol}* giảm *${fmtPct(changePct)}* - Giá: ${fmtMoney(price)}`);
+    }
+  }
+  if (item.targetBuy > 0 && price <= item.targetBuy) {
+    const key = alertKey + '_buy_target';
+    if (!localStorage.getItem(key)) {
+      addAlert({ type:'target', symbol:item.symbol, msg:`${item.symbol} đạt giá mua mục tiêu ${fmtMoney(item.targetBuy)}`, price });
+      localStorage.setItem(key, '1');
+      sendTelegram(`🎯 *${item.symbol}* đạt giá mua mục tiêu ${fmtMoney(item.targetBuy)}`);
+    }
+  }
+  if (item.targetSell > 0 && price >= item.targetSell) {
+    const key = alertKey + '_sell_target';
+    if (!localStorage.getItem(key)) {
+      addAlert({ type:'target', symbol:item.symbol, msg:`${item.symbol} đạt giá bán mục tiêu ${fmtMoney(item.targetSell)}`, price });
+      localStorage.setItem(key, '1');
+      sendTelegram(`🎯 *${item.symbol}* đạt giá bán mục tiêu ${fmtMoney(item.targetSell)}`);
+    }
+  }
+}
+
+function addAlert(data) {
+  const alert = { id: uid(), ...data, time: now(), read: false };
+  localData.alerts = [alert, ...(localData.alerts||[])];
+  saveLocalData();
+  if (config.gsUrl) gsUpsert('alerts', alert);
+  updateAlertBadge();
+}
+
+function updateAlertBadge() {
+  const unread = (localData.alerts||[]).filter(a => !a.read).length;
+  const badge = $('alertBadge');
+  if (unread > 0) { badge.style.display='inline'; badge.textContent=unread; } else badge.style.display='none';
+  $('alertsToday').textContent = (localData.alerts||[]).filter(a => !a.read && a.time && a.time.startsWith(today())).length;
+  const dot = $('notifDot');
+  if (dot) dot.style.display = unread > 0 ? 'block' : 'none';
+}
+
+// ─── PENDING ORDERS ──────────────────────────────────────────
+function checkPendingOrders() {
+  const orders = localData.orders || [];
+  let changed = false;
+  orders.forEach(order => {
+    if (order.status !== 'pending') return;
+    const price = priceCache[order.symbol]?.price;
+    if (!price) return;
+    let fill = false;
+    if (order.type === 'buy' && price <= order.orderPrice) fill = true;
+    if (order.type === 'sell' && price >= order.orderPrice) fill = true;
+    if (fill) {
+      order.status = 'filled';
+      order.fillPrice = price;
+      order.fillTime = now();
+      if (order.type === 'sell') {
+        const buyOrders = orders.filter(o => o.symbol === order.symbol && o.type === 'buy' && o.status === 'filled');
+        const avgBuy = buyOrders.reduce((s,o) => s + (o.orderPrice * o.quantity), 0) / (buyOrders.reduce((s,o) => s + o.quantity, 0) || 1);
+        const fees = (order.orderPrice * order.quantity * (config.sellFee + config.sellTax) / 100);
+        order.pnl = (price - avgBuy) * order.quantity - fees;
+      }
+      changed = true;
+      if (config.notifOrderFilled) sendTelegram(`✅ Lệnh *${order.type.toUpperCase()}* ${order.symbol} đã khớp @ ${fmtMoney(price)}`);
+    }
+  });
+  if (changed) { localData.orders = orders; saveLocalData(); }
+}
+
+// ─── TELEGRAM ────────────────────────────────────────────────
+async function sendTelegram(text) {
+  if (!config.telegramToken || !config.telegramChatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${config.telegramToken}/sendMessage`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: config.telegramChatId, text, parse_mode: 'Markdown' })
+    });
+  } catch(e) {}
+}
+
+// ─── SYNC STATUS ─────────────────────────────────────────────
+function setSyncStatus(state, text) {
+  const dot = $('syncDot');
+  $('syncText').textContent = text;
+  dot.className = 'fas fa-circle sync-dot';
+  if (state === 'ok') dot.style.color = 'var(--neon-green)';
+  else if (state === 'syncing') { dot.style.color = 'var(--neon-yellow)'; }
+  else { dot.style.color = 'var(--neon-red)'; }
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────
+let currentPage = 'dashboard';
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pageTitles = { dashboard:'Tổng quan', watchlist:'Danh mục quan tâm', portfolio:'Danh mục đầu tư', orders:'Nhật ký lệnh', alerts:'Cảnh báo', reports:'Báo cáo', settings:'Cài đặt' };
+  currentPage = page;
+  $(`page-${page}`)?.classList.add('active');
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  $('pageTitle').textContent = pageTitles[page] || page;
+  // Close sidebar on mobile
+  if (window.innerWidth <= 768) {
+    $('sidebar').classList.remove('open');
+    $('overlay').classList.remove('show');
+  }
+  renderCurrentPage();
+}
+
+function renderCurrentPage() {
+  if (currentPage === 'dashboard') renderDashboard();
+  else if (currentPage === 'watchlist') renderWatchlist();
+  else if (currentPage === 'portfolio') renderPortfolio();
+  else if (currentPage === 'orders') renderOrders();
+  else if (currentPage === 'alerts') renderAlerts();
+  else if (currentPage === 'reports') renderReports();
+}
+
+// ─── RENDER DASHBOARD ────────────────────────────────────────
+function renderDashboard() {
+  const watchlist = localData.watchlist || [];
+  const portfolio = localData.portfolio || [];
+  const tbody = $('dashboardTableBody');
+  if (watchlist.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có mã nào trong danh mục. Thêm mã ở "Danh mục quan tâm".</td></tr>';
+  } else {
+    tbody.innerHTML = watchlist.map(item => {
+      const p = priceCache[item.symbol] || {};
+      const price = p.price;
+      const chg = p.change;
+      const chgPct = p.changePct;
+      const cls = chgPct >= 0 ? 'pos' : 'neg';
+      const hasAlert = (item.alertUpper > 0 && chgPct >= item.alertUpper) || (item.alertLower > 0 && chgPct <= -item.alertLower);
+      return `<tr>
+        <td><span class="symbol-badge">${item.symbol}</span></td>
+        <td>${price ? fmt(price) : '--'}</td>
+        <td class="${cls}">${chg ? (chg>=0?'+':'')+fmt(chg) : '--'}</td>
+        <td class="${cls}">${chgPct != null ? fmtPct(chgPct) : '--'}</td>
+        <td class="neutral">${p.volume ? fmt(Math.round(p.volume/1e6),1)+'M' : '--'}</td>
+        <td>${hasAlert ? '<span style="color:var(--neon-orange)">⚠ Alert</span>' : (p.simulated ? '<span style="color:var(--text-muted)">~ Sim</span>' : '<span style="color:var(--neon-green)">✓ Live</span>')}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Portfolio summary
+  let totalCost = 0, totalMV = 0;
+  portfolio.forEach(pos => {
+    const price = priceCache[pos.symbol]?.price || pos.avgCost;
+    totalCost += (pos.avgCost || 0) * (pos.quantity || 0);
+    totalMV += price * (pos.quantity || 0);
+  });
+  const unrealized = totalMV - totalCost;
+  const unrealizedPct = totalCost > 0 ? (unrealized/totalCost)*100 : 0;
+  $('portfolioValue').textContent = fmtMoney(totalMV || null);
+  const pnlEl = $('portfolioPnL');
+  pnlEl.textContent = totalCost > 0 ? fmtPct(unrealizedPct) : '--';
+  pnlEl.className = 'card-sub ' + (unrealized >= 0 ? 'pos' : 'neg');
+  $('watchlistCount').textContent = watchlist.length;
+
+  // Chart symbol select
+  const sel = $('chartSymbolSelect');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">-- Chọn mã --</option>' + watchlist.map(i => `<option value="${i.symbol}">${i.symbol}</option>`).join('');
+  if (prev && watchlist.find(i => i.symbol === prev)) sel.value = prev;
+}
+
+// ─── RENDER WATCHLIST ─────────────────────────────────────────
+function renderWatchlist(filter='') {
+  const watchlist = (localData.watchlist||[]).filter(i => !filter || i.symbol.includes(filter.toUpperCase()) || (i.name||'').toLowerCase().includes(filter.toLowerCase()));
+  const tbody = $('watchlistTableBody');
+  if (watchlist.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Chưa có mã nào.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = watchlist.map(item => {
+    const p = priceCache[item.symbol] || {};
+    const cls = (p.changePct||0) >= 0 ? 'pos' : 'neg';
+    return `<tr>
+      <td><span class="symbol-badge">${item.symbol}</span></td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${item.name||'--'}</td>
+      <td>${p.price ? fmt(p.price) : '--'}</td>
+      <td class="${cls}">${p.changePct != null ? fmtPct(p.changePct) : '--'}</td>
+      <td>${item.targetBuy ? fmt(item.targetBuy) : '--'}</td>
+      <td>${item.targetSell ? fmt(item.targetSell) : '--'}</td>
+      <td>+${item.alertUpper||0}% / -${item.alertLower||0}%</td>
+      <td>
+        <button class="btn btn-sm btn-secondary" onclick="editWatchlist('${item.id}')"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteWatchlistItem('${item.id}')"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── RENDER PORTFOLIO ─────────────────────────────────────────
+function renderPortfolio() {
+  const portfolio = localData.portfolio || [];
+  const orders = localData.orders || [];
+  const tbody = $('portfolioTableBody');
+
+  let totalCost = 0, totalMV = 0;
+  const realizedPnl = orders.filter(o => o.type === 'sell' && o.status === 'filled' && o.pnl).reduce((s,o) => s+(o.pnl||0), 0);
+
+  if (portfolio.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Chưa có vị thế nào.</td></tr>';
+  } else {
+    tbody.innerHTML = portfolio.map(pos => {
+      const price = priceCache[pos.symbol]?.price || pos.avgCost;
+      const mv = price * pos.quantity;
+      const cost = pos.avgCost * pos.quantity;
+      const pnl = mv - cost;
+      const pnlPct = cost > 0 ? (pnl/cost)*100 : 0;
+      totalCost += cost; totalMV += mv;
+      const cls = pnl >= 0 ? 'pos' : 'neg';
+      return `<tr>
+        <td><span class="symbol-badge">${pos.symbol}</span></td>
+        <td>${fmt(pos.quantity)}</td>
+        <td>${fmt(pos.avgCost)}</td>
+        <td>${fmt(price)}</td>
+        <td>${fmtMoney(mv)}</td>
+        <td class="${cls}">${fmtMoney(pnl)}</td>
+        <td class="${cls}">${fmtPct(pnlPct)}</td>
+        <td>
+          <button class="btn btn-sm btn-secondary" onclick="editPosition('${pos.id}')"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deletePosition('${pos.id}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  const unrealized = totalMV - totalCost;
+  const unrealizedPct = totalCost > 0 ? (unrealized/totalCost)*100 : 0;
+  $('ptTotalCost').textContent = fmtMoney(totalCost||null);
+  $('ptMarketValue').textContent = fmtMoney(totalMV||null);
+  $('ptUnrealizedPnL').textContent = fmtMoney(unrealized||null);
+  $('ptUnrealizedPct').textContent = totalCost > 0 ? fmtPct(unrealizedPct) : '--';
+  $('ptUnrealizedPnL').className = 'card-value ' + (unrealized >= 0 ? 'pos' : 'neg');
+  $('ptRealizedPnL').textContent = fmtMoney(realizedPnl||null);
+  $('pnlIcon').className = 'card-icon ' + (unrealized >= 0 ? 'green' : 'red');
+
+  // Donut chart
+  if (portfolio.length > 0) drawPortfolioChart(portfolio);
+}
+
+// ─── RENDER ORDERS ────────────────────────────────────────────
+function renderOrders() {
+  const filter = $('orderFilter').value || 'all';
+  let orders = (localData.orders||[]).slice().reverse();
+  if (filter !== 'all') orders = orders.filter(o => o.status === filter);
+  const tbody = $('ordersTableBody');
+  if (orders.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Chưa có lệnh nào.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = orders.map(o => {
+    const statusMap = { pending:'<span style="color:var(--neon-yellow)">⏳ Chờ khớp</span>', filled:'<span style="color:var(--neon-green)">✅ Đã khớp</span>', cancelled:'<span style="color:var(--text-muted)">❌ Đã huỷ</span>' };
+    const typeClass = o.type === 'buy' ? 'pos' : 'neg';
+    const typeLabel = o.type === 'buy' ? '▲ MUA' : '▼ BÁN';
+    const pnlClass = (o.pnl||0) >= 0 ? 'pos' : 'neg';
+    const dt = o.time ? new Date(o.time).toLocaleString('vi-VN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
+    return `<tr>
+      <td style="color:var(--text-muted)">${dt}</td>
+      <td><span class="symbol-badge">${o.symbol}</span></td>
+      <td class="${typeClass}" style="font-weight:700">${typeLabel}</td>
+      <td>${fmt(o.orderPrice)}</td>
+      <td>${fmt(o.quantity)}</td>
+      <td>${statusMap[o.status]||o.status}</td>
+      <td class="${pnlClass}">${o.pnl != null ? fmtMoney(o.pnl) : '--'}</td>
+      <td>
+        ${o.status==='pending' ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelOrder('${o.id}')"><i class="fas fa-times"></i> Huỷ</button>` : ''}
+        <button class="btn btn-sm btn-secondary" onclick="deleteOrderItem('${o.id}')"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── RENDER ALERTS ────────────────────────────────────────────
+function renderAlerts() {
+  const alerts = localData.alerts || [];
+  const container = $('alertsContainer');
+  if (alerts.length === 0) {
+    container.innerHTML = '<div class="empty-state">Chưa có cảnh báo nào.</div>';
+    return;
+  }
+  const iconMap = { up:'up', down:'down', target:'target' };
+  const iconI = { up:'fas fa-arrow-trend-up', down:'fas fa-arrow-trend-down', target:'fas fa-bullseye' };
+  container.innerHTML = alerts.map(a => {
+    const cls = iconMap[a.type]||'target';
+    const dt = a.time ? new Date(a.time).toLocaleString('vi-VN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="alert-item ${a.read?'':'unread'}" onclick="markAlertRead('${a.id}')">
+      <div class="alert-icon ${cls}"><i class="${iconI[a.type]||'fas fa-bell'}"></i></div>
+      <div class="alert-content">
+        <div class="alert-title">${a.symbol||''}</div>
+        <div class="alert-desc">${a.msg||''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="alert-time">${dt}</div>
+        ${!a.read ? '<div class="unread-dot" style="margin-left:auto;margin-top:6px"></div>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── RENDER REPORTS ──────────────────────────────────────────
+function renderReports() {
+  const days = parseInt($('reportPeriod').value) || 30;
+  const since = new Date(Date.now() - days*86400000).toISOString();
+  const orders = (localData.orders||[]).filter(o => o.time >= since && o.status === 'filled');
+  const buyOrders = orders.filter(o => o.type === 'buy');
+  const sellOrders = orders.filter(o => o.type === 'sell');
+  const totalPnl = sellOrders.reduce((s,o) => s+(o.pnl||0), 0);
+  const wins = sellOrders.filter(o => (o.pnl||0) > 0).length;
+  const winRate = sellOrders.length > 0 ? (wins/sellOrders.length)*100 : 0;
+  $('rpt-buy').textContent = buyOrders.length + ' lệnh';
+  $('rpt-sell').textContent = sellOrders.length + ' lệnh';
+  $('rpt-pnl').textContent = fmtMoney(totalPnl);
+  $('rpt-pnl').className = 'card-value ' + (totalPnl >= 0 ? 'pos' : 'neg');
+  $('rpt-winrate').textContent = winRate.toFixed(1) + '%';
+
+  // Symbol performance
+  const bySymbol = {};
+  sellOrders.forEach(o => {
+    if (!bySymbol[o.symbol]) bySymbol[o.symbol] = { count:0, pnl:0, wins:0 };
+    bySymbol[o.symbol].count++;
+    bySymbol[o.symbol].pnl += o.pnl||0;
+    if ((o.pnl||0) > 0) bySymbol[o.symbol].wins++;
+  });
+  const tbody = $('symbolPerformanceBody');
+  const entries = Object.entries(bySymbol).sort((a,b) => b[1].pnl - a[1].pnl);
+  if (entries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Chưa có dữ liệu.</td></tr>';
+  } else {
+    tbody.innerHTML = entries.map(([sym, d]) => {
+      const cls = d.pnl >= 0 ? 'pos' : 'neg';
+      return `<tr><td><span class="symbol-badge">${sym}</span></td><td>${d.count}</td><td class="${cls}">${fmtMoney(d.pnl)}</td><td>${d.count > 0 ? ((d.wins/d.count)*100).toFixed(0)+'%' : '--'}</td></tr>`;
+    }).join('');
+  }
+  drawPnLChart(sellOrders, days);
+}
+
+// ─── CHARTS ──────────────────────────────────────────────────
+const chartDefaults = {
+  plugins: { legend: { labels: { color: '#7f8fa6', font: { family: 'JetBrains Mono', size: 11 } } } },
+  scales: { x: { ticks:{color:'#7f8fa6',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} }, y: { ticks:{color:'#7f8fa6',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} } }
+};
+
+function drawPriceChart(symbol) {
+  const history = (localData.priceHistory||{})[symbol] || [];
+  const canvas = $('priceChart');
+  if (!canvas) return;
+  if (priceChart) priceChart.destroy();
+  if (history.length === 0 && !priceCache[symbol]) { priceChart = null; return; }
+  const data = history.length > 0 ? history.slice(-30) : [];
+  if (priceCache[symbol]) data.push({ date: today(), price: priceCache[symbol].price });
+  priceChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.date?.slice(5) || ''),
+      datasets: [{ label: symbol, data: data.map(d => d.price), borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.08)', fill: true, tension: 0.4, pointRadius: 2 }]
+    },
+    options: { ...chartDefaults, responsive:true, maintainAspectRatio:false, plugins:{...chartDefaults.plugins, legend:{display:false}} }
+  });
+}
+
+function drawPortfolioChart(portfolio) {
+  const canvas = $('portfolioChart');
+  if (!canvas) return;
+  if (portfolioChart) portfolioChart.destroy();
+  const colors = ['#00d4ff','#00ff88','#bf5fff','#ff8c00','#ff3355','#ffe033','#4a9eff'];
+  const labels = portfolio.map(p => p.symbol);
+  const values = portfolio.map(p => (priceCache[p.symbol]?.price||p.avgCost)*p.quantity);
+  portfolioChart = new Chart(canvas, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors.slice(0,labels.length), borderColor: 'var(--bg-card)', borderWidth: 2 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#7f8fa6',font:{size:11},boxWidth:12} } } }
+  });
+}
+
+function drawPnLChart(orders, days) {
+  const canvas = $('pnlChart');
+  if (!canvas) return;
+  if (pnlChart) pnlChart.destroy();
+  // Group by date
+  const byDate = {};
+  orders.forEach(o => {
+    const d = (o.time||'').slice(0,10);
+    if (d) { byDate[d] = (byDate[d]||0) + (o.pnl||0); }
+  });
+  const dates = Array.from({length:Math.min(days,30)}, (_,i) => {
+    const d = new Date(Date.now() - (days-1-i)*86400000);
+    return d.toISOString().slice(0,10);
+  });
+  const values = dates.map(d => byDate[d]||0);
+  const colors = values.map(v => v >= 0 ? 'rgba(0,255,136,0.7)' : 'rgba(255,51,85,0.7)');
+  pnlChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: dates.map(d=>d.slice(5)), datasets: [{ label:'L/L', data:values, backgroundColor:colors, borderColor:colors, borderWidth:1 }] },
+    options: { ...chartDefaults, responsive:true, maintainAspectRatio:false, plugins:{...chartDefaults.plugins, legend:{display:false}} }
+  });
+}
+
+// ─── WATCHLIST CRUD ───────────────────────────────────────────
+function editWatchlist(id) {
+  const item = (localData.watchlist||[]).find(i => i.id === id);
+  if (!item) return;
+  $('watchlistModalTitle').textContent = 'Chỉnh sửa mã';
+  $('wl-id').value = item.id;
+  $('wl-symbol').value = item.symbol || '';
+  $('wl-name').value = item.name || '';
+  $('wl-sector').value = item.sector || '';
+  $('wl-alert-upper').value = item.alertUpper || '';
+  $('wl-alert-lower').value = item.alertLower || '';
+  $('wl-target-buy').value = item.targetBuy || '';
+  $('wl-target-sell').value = item.targetSell || '';
+  $('wl-note').value = item.note || '';
+  openModal('watchlistModal');
+}
+async function deleteWatchlistItem(id) {
+  if (!confirm('Xoá mã này?')) return;
+  await deleteRecord('watchlist', id);
+  renderCurrentPage();
+  toast('Đã xoá mã', 'success');
+}
+
+// ─── POSITION CRUD ────────────────────────────────────────────
+function editPosition(id) {
+  const pos = (localData.portfolio||[]).find(p => p.id === id);
+  if (!pos) return;
+  $('pos-id').value = pos.id;
+  $('pos-symbol').value = pos.symbol || '';
+  $('pos-quantity').value = pos.quantity || '';
+  $('pos-avg-cost').value = pos.avgCost || '';
+  openModal('positionModal');
+}
+async function deletePosition(id) {
+  if (!confirm('Xoá vị thế này?')) return;
+  await deleteRecord('portfolio', id);
+  renderCurrentPage();
+  toast('Đã xoá vị thế', 'success');
+}
+
+// ─── ORDER CRUD ───────────────────────────────────────────────
+async function cancelOrder(id) {
+  const orders = localData.orders || [];
+  const order = orders.find(o => o.id === id);
+  if (!order) return;
+  order.status = 'cancelled';
+  localData.orders = orders;
+  saveLocalData();
+  if (config.gsUrl) gsUpsert('orders', order);
+  renderCurrentPage();
+  toast('Đã huỷ lệnh', 'info');
+}
+async function deleteOrderItem(id) {
+  await deleteRecord('orders', id);
+  renderCurrentPage();
+  toast('Đã xoá lệnh', 'success');
+}
+function markAlertRead(id) {
+  const alert = (localData.alerts||[]).find(a => a.id === id);
+  if (alert && !alert.read) {
+    alert.read = true;
+    saveLocalData();
+    if (config.gsUrl) gsUpsert('alerts', alert);
+    updateAlertBadge();
+    renderAlerts();
+  }
+}
+
+// ─── GAS CODE COPY ────────────────────────────────────────────
+function openGSModal() {
+  $('gasCodeBlock').textContent = GAS_CODE.slice(0,100) + '...';
+  openModal('gsModal');
+}
+function copyGASCode() {
+  navigator.clipboard.writeText(GAS_CODE).then(() => {
+    toast('Đã copy Apps Script code! Dán vào Google Apps Script Editor', 'success', 4000);
+    closeModal('gsModal');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = GAS_CODE;
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('Đã copy code!', 'success');
+    closeModal('gsModal');
+  });
+}
+
+// ─── EVENT HANDLERS ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadConfig();
+  loadLocalData();
+  updateAlertBadge();
+
+  // Navigation
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => showPage(item.dataset.page));
+  });
+
+  // Sidebar mobile
+  $('menuToggle').addEventListener('click', () => {
+    $('sidebar').classList.toggle('open');
+    $('overlay').classList.toggle('show');
+  });
+  $('sidebarClose').addEventListener('click', () => {
+    $('sidebar').classList.remove('open');
+    $('overlay').classList.remove('show');
+  });
+  $('overlay').addEventListener('click', () => {
+    $('sidebar').classList.remove('open');
+    $('overlay').classList.remove('show');
+  });
+
+  // Theme
+  $('themeToggle').addEventListener('click', () => {
+    config.theme = config.theme === 'dark' ? 'light' : 'dark';
+    saveConfig(); applyConfig();
+  });
+
+  // Refresh
+  $('refreshBtn').addEventListener('click', () => refreshAllPrices());
+
+  // GS Setup button
+  $('setupGSBtn').addEventListener('click', openGSModal);
+
+  // Watchlist
+  $('addWatchlistBtn').addEventListener('click', () => {
+    $('watchlistModalTitle').textContent = 'Thêm mã theo dõi';
+    $('wl-id').value = '';
+    $('wl-symbol').value = ''; $('wl-name').value = '';
+    $('wl-sector').value = ''; $('wl-alert-upper').value = config.defaultAlertUpper;
+    $('wl-alert-lower').value = config.defaultAlertLower;
+    $('wl-target-buy').value = ''; $('wl-target-sell').value = '';
+    $('wl-note').value = '';
+    openModal('watchlistModal');
+  });
+  $('saveWatchlistBtn').addEventListener('click', async () => {
+    const symbol = $('wl-symbol').value.trim().toUpperCase();
+    if (!symbol) { toast('Nhập mã chứng khoán', 'warning'); return; }
+    const record = {
+      id: $('wl-id').value || undefined,
+      symbol, name: $('wl-name').value.trim(),
+      sector: $('wl-sector').value.trim(),
+      alertUpper: parseFloat($('wl-alert-upper').value)||0,
+      alertLower: parseFloat($('wl-alert-lower').value)||0,
+      targetBuy: parseFloat($('wl-target-buy').value)||0,
+      targetSell: parseFloat($('wl-target-sell').value)||0,
+      note: $('wl-note').value.trim(),
+      addedAt: now()
+    };
+    await saveRecord('watchlist', record);
+    closeModal('watchlistModal');
+    toast('Đã lưu mã ' + symbol, 'success');
+    // Fetch price immediately
+    const pd = await fetchPrice(symbol);
+    if (pd) priceCache[symbol] = pd;
+    renderCurrentPage();
+  });
+
+  // Watchlist search
+  $('watchlistSearch').addEventListener('input', e => renderWatchlist(e.target.value));
+
+  // Portfolio
+  $('addPositionBtn').addEventListener('click', () => {
+    $('pos-id').value = ''; $('pos-symbol').value = '';
+    $('pos-quantity').value = ''; $('pos-avg-cost').value = '';
+    openModal('positionModal');
+  });
+  $('savePositionBtn').addEventListener('click', async () => {
+    const symbol = $('pos-symbol').value.trim().toUpperCase();
+    const quantity = parseInt($('pos-quantity').value);
+    const avgCost = parseFloat($('pos-avg-cost').value);
+    if (!symbol || !quantity || !avgCost) { toast('Điền đầy đủ thông tin', 'warning'); return; }
+    const record = { id: $('pos-id').value||undefined, symbol, quantity, avgCost, addedAt: now() };
+    await saveRecord('portfolio', record);
+    closeModal('positionModal');
+    toast('Đã lưu vị thế ' + symbol, 'success');
+    if (!priceCache[symbol]) { const pd = await fetchPrice(symbol); if(pd) priceCache[symbol]=pd; }
+    renderCurrentPage();
+  });
+
+  // Orders
+  $('addBuyOrderBtn').addEventListener('click', () => openOrderModal('buy'));
+  $('addSellOrderBtn').addEventListener('click', () => openOrderModal('sell'));
+  $('orderFilter').addEventListener('change', () => renderOrders());
+  $('order-fill-now').addEventListener('change', function() {
+    $('fill-now-text').textContent = this.checked ? 'Có (khớp ngay)' : 'Không (chờ khớp)';
+  });
+  $('order-price').addEventListener('input', updateOrderSummary);
+  $('order-quantity').addEventListener('input', updateOrderSummary);
+
+  $('saveOrderBtn').addEventListener('click', async () => {
+    const symbol = $('order-symbol').value.trim().toUpperCase();
+    const orderPrice = parseFloat($('order-price').value);
+    const quantity = parseInt($('order-quantity').value);
+    const orderType = $('order-type').value;
+    if (!symbol || !orderPrice || !quantity) { toast('Điền đầy đủ thông tin', 'warning'); return; }
+    const fillNow = $('order-fill-now').checked;
+    const currentPrice = priceCache[symbol]?.price || orderPrice;
+    const feeRate = orderType === 'buy' ? config.buyFee : (config.sellFee + config.sellTax);
+    const fees = orderPrice * quantity * feeRate / 100;
+    const record = {
+      symbol, type: orderType, orderPrice, quantity,
+      fillPrice: fillNow ? currentPrice : null,
+      status: fillNow ? 'filled' : 'pending',
+      fees, pnl: null, note: $('order-note').value.trim(), time: now()
+    };
+    if (fillNow && orderType === 'sell') {
+      const buyOrders = (localData.orders||[]).filter(o => o.symbol===symbol && o.type==='buy' && o.status==='filled');
+      const avgBuy = buyOrders.length > 0 ? buyOrders.reduce((s,o) => s+o.orderPrice*o.quantity,0) / buyOrders.reduce((s,o) => s+o.quantity,0) : orderPrice;
+      record.pnl = (currentPrice - avgBuy) * quantity - fees;
+    }
+    await saveRecord('orders', record);
+    closeModal('orderModal');
+    toast(`Đã đặt lệnh ${orderType.toUpperCase()} ${symbol}`, 'success');
+    renderCurrentPage();
+  });
+
+  // Alerts
+  $('markAllReadBtn').addEventListener('click', () => {
+    (localData.alerts||[]).forEach(a => { a.read = true; if(config.gsUrl) gsUpsert('alerts',a); });
+    saveLocalData(); updateAlertBadge(); renderAlerts();
+    toast('Đã đánh dấu tất cả đã đọc', 'success');
+  });
+  $('clearAlertsBtn').addEventListener('click', () => {
+    if (!confirm('Xoá cảnh báo cũ hơn 7 ngày?')) return;
+    const cutoff = new Date(Date.now()-7*86400000).toISOString();
+    localData.alerts = (localData.alerts||[]).filter(a => a.time > cutoff);
+    saveLocalData(); updateAlertBadge(); renderAlerts();
+    toast('Đã xoá cảnh báo cũ', 'success');
+  });
+
+  // Reports
+  $('generateReportBtn').addEventListener('click', () => renderReports());
+  $('sendReportTelegramBtn').addEventListener('click', sendDailyReport);
+
+  // Settings
+  $('saveGSBtn').addEventListener('click', () => {
+    config.gsUrl = $('gsWebAppUrl').value.trim();
+    saveConfig(); applyConfig();
+    toast('Đã lưu Google Sheets URL', 'success');
+    if (config.gsUrl) syncFromGS();
+  });
+  $('testGSBtn').addEventListener('click', async () => {
+    const url = $('gsWebAppUrl').value.trim();
+    if (!url) { toast('Nhập URL trước', 'warning'); return; }
+    $('gsStatus').textContent = '⏳ Đang test...';
+    try {
+      const res = await fetch(url + '?action=ping&t=' + Date.now());
+      const json = await res.json();
+      if (json.ok) {
+        $('gsStatus').innerHTML = '<span style="color:var(--neon-green)">✅ Kết nối thành công!</span>';
+        toast('Kết nối Google Sheets thành công!', 'success');
+      } else throw new Error(json.error);
+    } catch(e) {
+      $('gsStatus').innerHTML = `<span style="color:var(--neon-red)">❌ Lỗi: ${e.message}</span>`;
+      toast('Không kết nối được: ' + e.message, 'error');
+    }
+  });
+  $('saveTelegramBtn').addEventListener('click', () => {
+    config.telegramToken = $('telegramToken').value.trim();
+    config.telegramChatId = $('telegramChatId').value.trim();
+    config.notifPriceAlert = $('notif-price-alert').checked;
+    config.notifTargetHit = $('notif-target-hit').checked;
+    config.notifOrderFilled = $('notif-order-filled').checked;
+    config.notifDailyReport = $('notif-daily-report').checked;
+    saveConfig(); toast('Đã lưu cài đặt Telegram', 'success');
+  });
+  $('testTelegramBtn').addEventListener('click', async () => {
+    const token = $('telegramToken').value.trim();
+    const chatId = $('telegramChatId').value.trim();
+    if (!token || !chatId) { toast('Nhập Token và Chat ID', 'warning'); return; }
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ chat_id: chatId, text: '✅ VN Stock Tracker đã kết nối thành công!' })
+      });
+      const json = await res.json();
+      if (json.ok) toast('Gửi Telegram thành công!', 'success');
+      else toast('Lỗi: ' + json.description, 'error');
+    } catch(e) { toast('Lỗi kết nối Telegram', 'error'); }
+  });
+  $('toggleToken').addEventListener('click', () => {
+    const inp = $('telegramToken');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+  $('saveScheduleBtn').addEventListener('click', () => {
+    config.refreshInterval = parseInt($('refreshInterval').value)||5;
+    config.dailyReportTime = $('dailyReportTime').value;
+    config.enableDailyReport = $('enableDailyReport').checked;
+    config.enableWeeklyReport = $('enableWeeklyReport').checked;
+    saveConfig(); startRefreshTimer();
+    toast('Đã lưu lịch cập nhật', 'success');
+  });
+  $('saveAlertSettingsBtn').addEventListener('click', () => {
+    config.defaultAlertUpper = parseFloat($('defaultAlertUpper').value)||5;
+    config.defaultAlertLower = parseFloat($('defaultAlertLower').value)||3;
+    config.buyFee = parseFloat($('buyFee').value)||0.15;
+    config.sellFee = parseFloat($('sellFee').value)||0.25;
+    config.sellTax = parseFloat($('sellTax').value)||0.1;
+    saveConfig(); toast('Đã lưu cài đặt cảnh báo', 'success');
+  });
+  $('exportAllBtn').addEventListener('click', exportAll);
+  $('importData').addEventListener('change', importData);
+  $('clearAllDataBtn').addEventListener('click', () => {
+    if (!confirm('XOÁ toàn bộ dữ liệu local? Dữ liệu trên Google Sheets sẽ không bị ảnh hưởng.')) return;
+    localData = { watchlist:[], portfolio:[], orders:[], alerts:[], priceHistory:{} };
+    saveLocalData(); renderCurrentPage(); updateAlertBadge();
+    toast('Đã xoá dữ liệu local', 'info');
+  });
+
+  // Chart symbol select
+  $('chartSymbolSelect').addEventListener('change', e => {
+    if (e.target.value) drawPriceChart(e.target.value);
+  });
+
+  // Initial load
+  refreshAllPrices().then(() => {
+    setSyncStatus('ok', config.gsUrl ? 'Google Sheets ✓' : 'Lưu local');
+  });
+  startRefreshTimer();
+  checkDailyReport();
+
+  // Sync from GS on load
+  if (config.gsUrl) syncFromGS();
+});
+
+// ─── ORDER MODAL ─────────────────────────────────────────────
+function openOrderModal(type) {
+  $('order-type').value = type;
+  $('orderModalTitle').textContent = type === 'buy' ? '▲ Đặt lệnh MUA' : '▼ Đặt lệnh BÁN';
+  $('order-symbol').value = ''; $('order-price').value = '';
+  $('order-quantity').value = ''; $('order-fill-now').checked = false;
+  $('fill-now-text').textContent = 'Không (chờ khớp)';
+  $('order-note').value = ''; $('orderTotal').textContent = '--';
+  $('orderFee').textContent = '--'; $('orderGrandTotal').textContent = '--';
+  openModal('orderModal');
+}
+
+function updateOrderSummary() {
+  const price = parseFloat($('order-price').value)||0;
+  const qty = parseInt($('order-quantity').value)||0;
+  const type = $('order-type').value;
+  if (!price || !qty) return;
+  const total = price * qty;
+  const feeRate = type === 'buy' ? config.buyFee : (config.sellFee + config.sellTax);
+  const fee = total * feeRate / 100;
+  $('orderTotal').textContent = fmtMoney(total);
+  $('orderFee').textContent = fmtMoney(fee) + ` (${feeRate}%)`;
+  $('orderGrandTotal').textContent = fmtMoney(type==='buy' ? total+fee : total-fee);
+}
+
+// ─── SYNC FROM GS ────────────────────────────────────────────
+async function syncFromGS() {
+  setSyncStatus('syncing', 'Đang đồng bộ...');
+  let ok = true;
+  for (const key of ['watchlist','portfolio','orders','alerts']) {
+    const rows = await gsGetAll(key);
+    if (rows !== null) localData[key] = rows;
+    else ok = false;
+  }
+  saveLocalData();
+  setSyncStatus(ok ? 'ok' : 'error', ok ? 'Google Sheets ✓' : 'GS lỗi - dùng local');
+  updateAlertBadge();
+  renderCurrentPage();
+}
+
+// ─── REFRESH TIMER ────────────────────────────────────────────
+function startRefreshTimer() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  const mins = parseInt(config.refreshInterval) || 5;
+  refreshTimer = setInterval(() => refreshAllPrices(), mins * 60000);
+}
+
+// ─── DAILY REPORT ────────────────────────────────────────────
+function checkDailyReport() {
+  if (!config.enableDailyReport || !config.notifDailyReport) return;
+  setInterval(() => {
+    const now = new Date();
+    const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    if (t === config.dailyReportTime) {
+      const key = `daily_report_${today()}`;
+      if (!localStorage.getItem(key)) { localStorage.setItem(key,'1'); sendDailyReport(); }
+    }
+  }, 60000);
+}
+
+async function sendDailyReport() {
+  const portfolio = localData.portfolio || [];
+  const orders = (localData.orders||[]).filter(o => o.time?.startsWith(today()) && o.status==='filled');
+  let msg = `📊 *Báo cáo cuối ngày ${today()}*\n\n`;
+  msg += `*Danh mục đầu tư:*\n`;
+  portfolio.forEach(pos => {
+    const price = priceCache[pos.symbol]?.price || pos.avgCost;
+    const pnl = (price - pos.avgCost) * pos.quantity;
+    const pct = ((price-pos.avgCost)/pos.avgCost)*100;
+    msg += `• ${pos.symbol}: ${fmt(price)} (${fmtPct(pct)})\n`;
+  });
+  if (orders.length > 0) {
+    msg += `\n*Lệnh hôm nay:* ${orders.length} lệnh\n`;
+    const pnl = orders.filter(o=>o.type==='sell').reduce((s,o)=>s+(o.pnl||0),0);
+    if (pnl !== 0) msg += `*L/L hôm nay:* ${fmtMoney(pnl)}\n`;
+  }
+  await sendTelegram(msg);
+  toast('Đã gửi báo cáo qua Telegram', 'success');
+}
+
+// ─── EXPORT/IMPORT ────────────────────────────────────────────
+function exportAll() {
+  const data = { ...localData, exportedAt: now(), version: '2.0' };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `vnstock-backup-${today()}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('Đã xuất dữ liệu JSON', 'success');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!confirm(`Nhập dữ liệu từ file (sẽ ghi đè dữ liệu hiện tại)?`)) return;
+      if (imported.watchlist) localData.watchlist = imported.watchlist;
+      if (imported.portfolio) localData.portfolio = imported.portfolio;
+      if (imported.orders) localData.orders = imported.orders;
+      if (imported.alerts) localData.alerts = imported.alerts;
+      saveLocalData();
+      // Sync to GS if connected
+      if (config.gsUrl) {
+        for (const key of ['watchlist','portfolio','orders','alerts']) {
+          if (localData[key]?.length) {
+            await gsCall({action:'batchUpsert', sheet:key, records:JSON.stringify(localData[key])});
+          }
+        }
+      }
+      toast('Đã nhập dữ liệu thành công', 'success');
+      renderCurrentPage(); updateAlertBadge();
+    } catch(err) { toast('File không hợp lệ: ' + err.message, 'error'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+</script>
+</body>
+</html>
