@@ -698,11 +698,20 @@ body {
       <div class="card">
         <div class="card-header">
           <h3><i class="fas fa-chart-area"></i> Biểu đồ giá</h3>
-          <select class="select-sm" id="chartSymbolSelect"><option value="">-- Chọn mã --</option></select>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select class="select-sm" id="chartSymbolSelect"><option value="">-- Chọn mã --</option></select>
+            <select class="select-sm" id="chartRangeSelect">
+              <option value="30">1 tháng</option>
+              <option value="90">3 tháng</option>
+              <option value="180">6 tháng</option>
+              <option value="365" selected>1 năm</option>
+            </select>
+          </div>
         </div>
-        <div style="height:260px;position:relative;padding:12px;">
+        <div style="height:320px;position:relative;padding:12px;">
           <canvas id="priceChart"></canvas>
         </div>
+        <div id="chartLegendExtra" style="padding:0 14px 10px;display:flex;gap:16px;flex-wrap:wrap;font-size:0.72rem;color:var(--text-secondary)"></div>
       </div>
     </div>
 
@@ -758,7 +767,7 @@ body {
         <div class="card-header"><h3><i class="fas fa-briefcase"></i> Vị thế đang nắm</h3></div>
         <div class="table-responsive">
           <table class="data-table">
-            <thead><tr><th>Mã</th><th>SL</th><th>Giá vốn TB</th><th>Giá TT</th><th>GT TT</th><th>L/L</th><th>%L/L</th><th>Thao tác</th></tr></thead>
+            <thead><tr><th>Mã / Tên</th><th>SL</th><th>Giá vốn TB</th><th>Giá TT</th><th>GT thị trường</th><th>Lãi/Lỗ (VND)</th><th>% Lãi/Lỗ</th><th>Thao tác</th></tr></thead>
             <tbody id="portfolioTableBody"><tr><td colspan="8" class="empty-state">Chưa có vị thế nào.</td></tr></tbody>
           </table>
         </div>
@@ -776,6 +785,7 @@ body {
       <div class="page-actions">
         <button class="btn btn-success" id="addBuyOrderBtn"><i class="fas fa-arrow-up"></i> Đặt lệnh Mua</button>
         <button class="btn btn-danger" id="addSellOrderBtn"><i class="fas fa-arrow-down"></i> Đặt lệnh Bán</button>
+        <button class="btn btn-secondary" id="addHistoryOrderBtn"><i class="fas fa-history"></i> Thêm GD cũ</button>
         <select class="select-sm" id="orderFilter">
           <option value="all">Tất cả lệnh</option>
           <option value="pending">Chờ khớp</option>
@@ -790,7 +800,7 @@ body {
         </div>
         <div class="table-responsive">
           <table class="data-table">
-            <thead><tr><th>Thời gian</th><th>Mã</th><th>Loại</th><th>Giá đặt</th><th>KL</th><th>Trạng thái</th><th>L/L</th><th>Thao tác</th></tr></thead>
+            <thead><tr><th>Thời gian</th><th>Mã / Tên</th><th>Loại</th><th>Giá đặt</th><th>KL</th><th>Giá khớp</th><th>Trạng thái</th><th>Lãi/Lỗ (VND)</th><th>%L/L vốn</th><th>Thao tác</th></tr></thead>
             <tbody id="ordersTableBody"><tr><td colspan="8" class="empty-state">Chưa có lệnh nào.</td></tr></tbody>
           </table>
         </div>
@@ -1052,6 +1062,67 @@ body {
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('orderModal')">Huỷ</button>
       <button class="btn btn-primary" id="saveOrderBtn">Xác nhận lệnh</button>
+    </div>
+  </div>
+</div>
+
+<!-- History Order Modal (giao dịch đã thực hiện trước đây) -->
+<div class="modal" id="historyOrderModal">
+  <div class="modal-backdrop" onclick="closeModal('historyOrderModal')"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3><i class="fas fa-history"></i> Thêm giao dịch lịch sử</h3>
+      <button class="btn-icon" onclick="closeModal('historyOrderModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px">Nhập thủ công các giao dịch mua/bán đã thực hiện trước đây để theo dõi hiệu suất tổng thể.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Mã CK *</label>
+          <input type="text" id="hist-symbol" class="input-upper" placeholder="VD: VNM" maxlength="10" />
+        </div>
+        <div class="form-group">
+          <label>Loại giao dịch *</label>
+          <select id="hist-type">
+            <option value="buy">Mua</option>
+            <option value="sell">Bán</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Giá khớp (VND) *</label>
+          <input type="number" id="hist-price" placeholder="Giá thực hiện" min="0" />
+        </div>
+        <div class="form-group">
+          <label>Khối lượng *</label>
+          <input type="number" id="hist-qty" placeholder="Số lượng CP" min="1" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Ngày giao dịch *</label>
+        <input type="date" id="hist-date" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Phí + Thuế (VND)</label>
+          <input type="number" id="hist-fee" placeholder="0" min="0" />
+        </div>
+        <div class="form-group">
+          <label>Giá vốn mua TB (nếu bán)</label>
+          <input type="number" id="hist-avgbuy" placeholder="Để trống = tự tính" min="0" />
+          <p class="form-hint" style="font-size:0.68rem">Dùng để tính P&L cho lệnh bán</p>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Ghi chú</label>
+        <input type="text" id="hist-note" placeholder="Mô tả giao dịch..." />
+      </div>
+      <div id="histOrderSummary" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:0.78rem;color:var(--text-secondary);margin-top:4px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('historyOrderModal')">Huỷ</button>
+      <button class="btn btn-primary" id="saveHistoryOrderBtn">Lưu giao dịch</button>
     </div>
   </div>
 </div>
@@ -1962,27 +2033,40 @@ function renderPortfolio() {
   const tbody = $('portfolioTableBody');
 
   let totalCost = 0, totalMV = 0;
-  const realizedPnl = orders.filter(o => o.type === 'sell' && o.status === 'filled' && o.pnl).reduce((s,o) => s+(o.pnl||0), 0);
+  // Lãi/lỗ đã thực hiện: tổng PnL từ lệnh bán đã khớp
+  const realizedPnl = orders
+    .filter(o => o.type === 'sell' && o.status === 'filled' && o.pnl != null)
+    .reduce((s, o) => s + (Number(o.pnl) || 0), 0);
 
   if (portfolio.length === 0) {
     tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Chưa có vị thế nào.</td></tr>';
   } else {
     tbody.innerHTML = portfolio.map(pos => {
-      const price = priceCache[pos.symbol]?.price || pos.avgCost;
-      const mv = price * pos.quantity;
-      const cost = pos.avgCost * pos.quantity;
-      const pnl = mv - cost;
-      const pnlPct = cost > 0 ? (pnl/cost)*100 : 0;
-      totalCost += cost; totalMV += mv;
+      const p = priceCache[pos.symbol] || {};
+      const marketPrice = p.price || pos.avgCost; // giá thị trường hiện tại
+      const avgCost = Number(pos.avgCost) || 0;   // giá vốn trung bình
+      const qty = Number(pos.quantity) || 0;
+      const mv   = marketPrice * qty;              // giá trị thị trường
+      const cost = avgCost * qty;                  // giá vốn tổng
+      const pnl  = mv - cost;                      // lãi/lỗ tuyệt đối (VND)
+      const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0; // % lãi/lỗ so vốn
+      totalCost += cost;
+      totalMV   += mv;
       const cls = pnl >= 0 ? 'pos' : 'neg';
+      const name = pos.name || (localData.watchlist||[]).find(w => w.symbol === pos.symbol)?.name || '';
+      const srcTag = p.source && p.source !== 'SIM'
+        ? `<span style="font-size:0.65rem;color:var(--neon-green)"> ✓${p.source}</span>` : '';
       return `<tr>
-        <td><span class="symbol-badge">${pos.symbol}</span></td>
-        <td>${fmt(pos.quantity)}</td>
-        <td>${fmt(pos.avgCost)}</td>
-        <td>${fmt(price)}</td>
+        <td>
+          <span class="symbol-badge">${pos.symbol}</span>
+          ${name ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px">${name}</div>` : ''}
+        </td>
+        <td style="font-weight:600">${fmt(qty)}</td>
+        <td>${fmt(avgCost, 2)}</td>
+        <td>${fmt(marketPrice, 0)}${srcTag}</td>
         <td>${fmtMoney(mv)}</td>
-        <td class="${cls}">${fmtMoney(pnl)}</td>
-        <td class="${cls}">${fmtPct(pnlPct)}</td>
+        <td class="${cls}" style="font-weight:700">${fmtMoney(pnl)}</td>
+        <td class="${cls}" style="font-weight:700">${fmtPct(pnlPct)}</td>
         <td>
           <button class="btn btn-sm btn-secondary" onclick="editPosition('${pos.id}')"><i class="fas fa-edit"></i></button>
           <button class="btn btn-sm btn-outline-danger" onclick="deletePosition('${pos.id}')"><i class="fas fa-trash"></i></button>
@@ -1992,45 +2076,62 @@ function renderPortfolio() {
   }
 
   const unrealized = totalMV - totalCost;
-  const unrealizedPct = totalCost > 0 ? (unrealized/totalCost)*100 : 0;
-  $('ptTotalCost').textContent = fmtMoney(totalCost||null);
-  $('ptMarketValue').textContent = fmtMoney(totalMV||null);
-  $('ptUnrealizedPnL').textContent = fmtMoney(unrealized||null);
+  const unrealizedPct = totalCost > 0 ? (unrealized / totalCost) * 100 : 0;
+  $('ptTotalCost').textContent = fmtMoney(totalCost || null);
+  $('ptMarketValue').textContent = fmtMoney(totalMV || null);
+  $('ptUnrealizedPnL').textContent = fmtMoney(unrealized || null);
   $('ptUnrealizedPct').textContent = totalCost > 0 ? fmtPct(unrealizedPct) : '--';
   $('ptUnrealizedPnL').className = 'card-value ' + (unrealized >= 0 ? 'pos' : 'neg');
-  $('ptRealizedPnL').textContent = fmtMoney(realizedPnl||null);
+  $('ptRealizedPnL').textContent = fmtMoney(realizedPnl || null);
   $('pnlIcon').className = 'card-icon ' + (unrealized >= 0 ? 'green' : 'red');
 
-  // Donut chart
   if (portfolio.length > 0) drawPortfolioChart(portfolio);
 }
 
 // ─── RENDER ORDERS ────────────────────────────────────────────
 function renderOrders() {
   const filter = $('orderFilter').value || 'all';
-  let orders = (localData.orders||[]).slice().reverse();
+  let orders = (localData.orders || []).slice().reverse();
   if (filter !== 'all') orders = orders.filter(o => o.status === filter);
   const tbody = $('ordersTableBody');
   if (orders.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Chưa có lệnh nào.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Chưa có lệnh nào.</td></tr>`;
     return;
   }
+  const statusMap = {
+    pending:   '<span style="color:var(--neon-yellow)">⏳ Chờ khớp</span>',
+    filled:    '<span style="color:var(--neon-green)">✅ Đã khớp</span>',
+    cancelled: '<span style="color:var(--text-muted)">❌ Đã huỷ</span>'
+  };
   tbody.innerHTML = orders.map(o => {
-    const statusMap = { pending:'<span style="color:var(--neon-yellow)">⏳ Chờ khớp</span>', filled:'<span style="color:var(--neon-green)">✅ Đã khớp</span>', cancelled:'<span style="color:var(--text-muted)">❌ Đã huỷ</span>' };
     const typeClass = o.type === 'buy' ? 'pos' : 'neg';
     const typeLabel = o.type === 'buy' ? '▲ MUA' : '▼ BÁN';
-    const pnlClass = (o.pnl||0) >= 0 ? 'pos' : 'neg';
-    const dt = o.time ? new Date(o.time).toLocaleString('vi-VN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
+    const pnl = o.pnl != null ? Number(o.pnl) : null;
+    const pnlClass = (pnl || 0) >= 0 ? 'pos' : 'neg';
+    const dt = o.time ? new Date(o.time).toLocaleString('vi-VN', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'}) : '--';
+    const fillPrice = o.fillPrice || (o.status === 'filled' ? o.orderPrice : null);
+    // % lãi/lỗ so với giá vốn mua
+    let pnlPct = null;
+    if (pnl != null && o.type === 'sell' && fillPrice) {
+      const avgBuy = o.avgBuyPrice || o.orderPrice;
+      if (avgBuy > 0) pnlPct = ((fillPrice - avgBuy) / avgBuy) * 100;
+    }
+    const name = (localData.watchlist || []).find(w => w.symbol === o.symbol)?.name || '';
     return `<tr>
-      <td style="color:var(--text-muted)">${dt}</td>
-      <td><span class="symbol-badge">${o.symbol}</span></td>
-      <td class="${typeClass}" style="font-weight:700">${typeLabel}</td>
-      <td>${fmt(o.orderPrice)}</td>
-      <td>${fmt(o.quantity)}</td>
-      <td>${statusMap[o.status]||o.status}</td>
-      <td class="${pnlClass}">${o.pnl != null ? fmtMoney(o.pnl) : '--'}</td>
+      <td style="color:var(--text-muted);font-size:0.72rem">${dt}</td>
       <td>
-        ${o.status==='pending' ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelOrder('${o.id}')"><i class="fas fa-times"></i> Huỷ</button>` : ''}
+        <span class="symbol-badge">${o.symbol}</span>
+        ${name ? `<div style="font-size:0.65rem;color:var(--text-muted)">${name}</div>` : ''}
+      </td>
+      <td class="${typeClass}" style="font-weight:700">${typeLabel}</td>
+      <td>${fmt(o.orderPrice, 0)}</td>
+      <td>${fmt(o.quantity)}</td>
+      <td>${fillPrice ? fmt(fillPrice, 0) : '<span style="color:var(--text-muted)">--</span>'}</td>
+      <td>${statusMap[o.status] || o.status}</td>
+      <td class="${pnlClass}" style="font-weight:600">${pnl != null ? fmtMoney(pnl) : '--'}</td>
+      <td class="${pnlClass}">${pnlPct != null ? fmtPct(pnlPct) : '--'}</td>
+      <td>
+        ${o.status === 'pending' ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelOrder('${o.id}')"><i class="fas fa-times"></i></button>` : ''}
         <button class="btn btn-sm btn-secondary" onclick="deleteOrderItem('${o.id}')"><i class="fas fa-trash"></i></button>
       </td>
     </tr>`;
@@ -2103,26 +2204,231 @@ function renderReports() {
 
 // ─── CHARTS ──────────────────────────────────────────────────
 const chartDefaults = {
-  plugins: { legend: { labels: { color: '#7f8fa6', font: { family: 'JetBrains Mono', size: 11 } } } },
-  scales: { x: { ticks:{color:'#7f8fa6',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} }, y: { ticks:{color:'#7f8fa6',font:{size:10}}, grid:{color:'rgba(255,255,255,0.04)'} } }
+  plugins: { legend: { labels: { color: '#7f8fa6', font: { family: 'JetBrains Mono', size: 11 }, boxWidth: 12 } } },
+  scales: {
+    x: { ticks: { color: '#7f8fa6', font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+    y: { ticks: { color: '#7f8fa6', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
+  }
 };
 
-function drawPriceChart(symbol) {
-  const history = (localData.priceHistory||{})[symbol] || [];
+// Fetch lịch sử giá từ TCBS (daily bars) — trả về [{date, open, high, low, close, volume}]
+async function fetchHistoricalPrices(symbol, days = 365) {
+  const sym = symbol.toUpperCase().trim();
+  const toTs = Math.floor(Date.now() / 1000);
+  const frTs = toTs - (days + 5) * 86400;
+
+  // ── TCBS daily bars ──
+  try {
+    const res = await fetch(
+      `https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=${sym}&type=stock&resolution=D&from=${frTs}&to=${toTs}`,
+      {
+        headers: { 'Referer': 'https://tcinvest.tcbs.com.vn/', 'Origin': 'https://tcinvest.tcbs.com.vn' },
+        signal: AbortSignal.timeout(10000)
+      }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const bars = json?.data || [];
+      if (bars.length > 5) {
+        return bars.map(b => ({
+          date:   b.tradingDate || new Date((b.time || 0) * 1000).toISOString().slice(0, 10),
+          open:   (b.open  || b.o || 0) * 1000,
+          high:   (b.high  || b.h || 0) * 1000,
+          low:    (b.low   || b.l || 0) * 1000,
+          close:  (b.close || b.c || 0) * 1000,
+          volume:  b.volume || b.v || 0
+        })).filter(b => b.close > 0).slice(-days);
+      }
+    }
+  } catch(e) {}
+
+  // ── VNDirect historical fallback ──
+  try {
+    const endDate = new Date().toISOString().slice(0, 10).replace(/-/g, '-');
+    const startDate = new Date(frTs * 1000).toISOString().slice(0, 10).replace(/-/g, '-');
+    const res = await fetch(
+      `https://finfo-api.vndirect.com.vn/v4/stock-prices?code=${sym}&startDate=${startDate}&endDate=${endDate}&size=${days+10}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const items = json?.data || [];
+      if (items.length > 0) {
+        return items.map(d => ({
+          date:   d.date,
+          open:   (d.open  || 0) * 1000,
+          high:   (d.high  || 0) * 1000,
+          low:    (d.low   || 0) * 1000,
+          close:  (d.close || 0) * 1000,
+          volume:  d.totalVolume || 0
+        })).filter(b => b.close > 0).reverse().slice(-days);
+      }
+    }
+  } catch(e) {}
+
+  // ── Fallback từ priceHistory local ──
+  const stored = (localData.priceHistory || {})[sym] || [];
+  if (stored.length > 0) return stored.slice(-days);
+
+  return [];
+}
+
+async function drawPriceChart(symbol) {
+  if (!symbol) return;
   const canvas = $('priceChart');
   if (!canvas) return;
-  if (priceChart) priceChart.destroy();
-  if (history.length === 0 && !priceCache[symbol]) { priceChart = null; return; }
-  const data = history.length > 0 ? history.slice(-30) : [];
-  if (priceCache[symbol]) data.push({ date: today(), price: priceCache[symbol].price });
+  if (priceChart) { priceChart.destroy(); priceChart = null; }
+
+  const days = parseInt($('chartRangeSelect')?.value || '365');
+  const legendEl = $('chartLegendExtra');
+  if (legendEl) legendEl.innerHTML = '<span style="color:var(--text-muted)">⏳ Đang tải dữ liệu biểu đồ...</span>';
+
+  const bars = await fetchHistoricalPrices(symbol, days);
+  if (bars.length === 0) {
+    if (legendEl) legendEl.innerHTML = '<span style="color:var(--text-muted)">Không có dữ liệu lịch sử giá</span>';
+    return;
+  }
+
+  // Thêm giá hôm nay từ cache nếu mới hơn bar cuối
+  const latestCache = priceCache[symbol];
+  if (latestCache?.price) {
+    const lastBarDate = bars[bars.length - 1]?.date;
+    const todayStr = today();
+    if (lastBarDate !== todayStr) {
+      bars.push({ date: todayStr, open: latestCache.open || latestCache.price, high: latestCache.price, low: latestCache.price, close: latestCache.price, volume: latestCache.volume || 0 });
+    }
+  }
+
+  const labels = bars.map(b => {
+    const d = b.date?.slice(5) || ''; // MM-DD
+    return d.replace('-', '/');
+  });
+  const closePrices = bars.map(b => b.close);
+
+  // ── Tìm giá vốn TB và lệnh chờ của mã này ──
+  const pos = (localData.portfolio || []).find(p => p.symbol === symbol);
+  const avgCost = pos ? Number(pos.avgCost) : null;
+
+  const pendingOrders = (localData.orders || []).filter(
+    o => o.symbol === symbol && o.status === 'pending' && o.orderPrice > 0
+  );
+  const pendingBuys  = pendingOrders.filter(o => o.type === 'buy');
+  const pendingSells = pendingOrders.filter(o => o.type === 'sell');
+  const avgPendingBuy  = pendingBuys.length  ? pendingBuys.reduce((s,o)=>s+o.orderPrice,0)/pendingBuys.length   : null;
+  const avgPendingSell = pendingSells.length ? pendingSells.reduce((s,o)=>s+o.orderPrice,0)/pendingSells.length : null;
+
+  const datasets = [
+    {
+      label: `${symbol} - Giá đóng cửa`,
+      data: closePrices,
+      borderColor: '#00d4ff',
+      backgroundColor: 'rgba(0,212,255,0.06)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      borderWidth: 2,
+      order: 1
+    }
+  ];
+
+  // Đường giá vốn trung bình
+  if (avgCost && avgCost > 0) {
+    datasets.push({
+      label: `Giá vốn TB: ${fmt(avgCost, 2)}`,
+      data: Array(labels.length).fill(avgCost),
+      borderColor: '#ffe033',
+      borderDash: [6, 3],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      fill: false,
+      tension: 0,
+      order: 2
+    });
+  }
+
+  // Đường lệnh chờ mua
+  if (avgPendingBuy) {
+    datasets.push({
+      label: `Chờ mua: ${fmt(avgPendingBuy, 0)} (${pendingBuys.length} lệnh)`,
+      data: Array(labels.length).fill(avgPendingBuy),
+      borderColor: '#00ff88',
+      borderDash: [4, 4],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      fill: false,
+      tension: 0,
+      order: 3
+    });
+  }
+
+  // Đường lệnh chờ bán
+  if (avgPendingSell) {
+    datasets.push({
+      label: `Chờ bán: ${fmt(avgPendingSell, 0)} (${pendingSells.length} lệnh)`,
+      data: Array(labels.length).fill(avgPendingSell),
+      borderColor: '#ff3355',
+      borderDash: [4, 4],
+      borderWidth: 1.5,
+      pointRadius: 0,
+      fill: false,
+      tension: 0,
+      order: 4
+    });
+  }
+
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+  const tickColor = isDark ? '#4a5568' : '#9ca3af';
+
   priceChart = new Chart(canvas, {
     type: 'line',
-    data: {
-      labels: data.map(d => d.date?.slice(5) || ''),
-      datasets: [{ label: symbol, data: data.map(d => d.price), borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.08)', fill: true, tension: 0.4, pointRadius: 2 }]
-    },
-    options: { ...chartDefaults, responsive:true, maintainAspectRatio:false, plugins:{...chartDefaults.plugins, legend:{display:false}} }
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { color: isDark ? '#7f8fa6' : '#4a5568', font: { family: 'JetBrains Mono', size: 10 }, boxWidth: 14, padding: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw, 0)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: tickColor, font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+          grid: { color: gridColor }
+        },
+        y: {
+          ticks: {
+            color: tickColor, font: { size: 10 },
+            callback: v => fmt(v, 0)
+          },
+          grid: { color: gridColor }
+        }
+      }
+    }
   });
+
+  // Update legend
+  if (legendEl) {
+    const srcTag = latestCache?.source && latestCache.source !== 'SIM'
+      ? `<span style="color:var(--neon-green)">Nguồn: ${latestCache.source} ✓</span>`
+      : '<span style="color:var(--text-muted)">Nguồn: Simulation</span>';
+    legendEl.innerHTML = `
+      <span style="color:var(--neon-cyan)">📊 ${bars.length} ngày dữ liệu</span>
+      ${srcTag}
+      ${avgCost ? `<span style="color:var(--neon-yellow)">━ Giá vốn: ${fmt(avgCost,2)}</span>` : ''}
+      ${avgPendingBuy  ? `<span style="color:var(--neon-green)">- - Chờ mua: ${fmt(avgPendingBuy,0)}</span>` : ''}
+      ${avgPendingSell ? `<span style="color:var(--neon-red)">- - Chờ bán: ${fmt(avgPendingSell,0)}</span>` : ''}
+    `;
+  }
 }
 
 function drawPortfolioChart(portfolio) {
@@ -2160,6 +2466,66 @@ function drawPnLChart(orders, days) {
     data: { labels: dates.map(d=>d.slice(5)), datasets: [{ label:'L/L', data:values, backgroundColor:colors, borderColor:colors, borderWidth:1 }] },
     options: { ...chartDefaults, responsive:true, maintainAspectRatio:false, plugins:{...chartDefaults.plugins, legend:{display:false}} }
   });
+}
+
+// ─── AUTO-FETCH TÊN CÔNG TY ──────────────────────────────────
+const companyNameCache = {}; // { symbol: name }
+
+async function fetchCompanyName(symbol) {
+  if (companyNameCache[symbol]) return companyNameCache[symbol];
+  const stored = (localData.watchlist || []).find(w => w.symbol === symbol)?.name;
+  if (stored) { companyNameCache[symbol] = stored; return stored; }
+
+  // TCBS company info
+  try {
+    const res = await fetch(
+      `https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/${symbol}/overview`,
+      {
+        headers: { 'Referer': 'https://tcinvest.tcbs.com.vn/', 'Origin': 'https://tcinvest.tcbs.com.vn' },
+        signal: AbortSignal.timeout(5000)
+      }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const name = json?.companyName || json?.shortName || json?.name;
+      if (name) { companyNameCache[symbol] = name; return name; }
+    }
+  } catch(e) {}
+
+  // SSI company info
+  try {
+    const res = await fetch(
+      `https://fc-data.ssi.com.vn/api/v2/Market/Securities?lookupRequest.market=ALL&lookupRequest.symbol=${symbol}&lookupRequest.pageIndex=1&lookupRequest.pageSize=1`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const item = json?.data?.list?.[0] || json?.data?.[0];
+      const name = item?.stockName || item?.companyName || item?.name;
+      if (name) { companyNameCache[symbol] = name; return name; }
+    }
+  } catch(e) {}
+
+  return '';
+}
+
+// Tự động cập nhật tên cho tất cả mã trong watchlist nếu chưa có tên
+async function autoFetchAllNames() {
+  const watchlist = localData.watchlist || [];
+  let updated = false;
+  for (const item of watchlist) {
+    if (!item.name && item.symbol) {
+      const name = await fetchCompanyName(item.symbol);
+      if (name) {
+        item.name = name;
+        updated = true;
+        await saveRecord('watchlist', item);
+      }
+    } else if (item.name) {
+      companyNameCache[item.symbol] = item.name;
+    }
+  }
+  if (updated) renderCurrentPage();
 }
 
 // ─── WATCHLIST CRUD ───────────────────────────────────────────
@@ -2322,6 +2688,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     await saveRecord('watchlist', record);
     closeModal('watchlistModal');
+    // Tự động lấy tên công ty nếu chưa có
+    if (!record.name) {
+      fetchCompanyName(symbol).then(name => {
+        if (name) {
+          record.name = name;
+          saveRecord('watchlist', record);
+          renderCurrentPage();
+        }
+      });
+    }
     toast('Đã lưu mã ' + symbol, 'success');
     // Fetch price immediately
     const pd = await fetchPrice(symbol);
@@ -2485,20 +2861,40 @@ document.addEventListener('DOMContentLoaded', () => {
     toast('Đã xoá dữ liệu local', 'info');
   });
 
-  // Chart symbol select
+  // Chart symbol and range select
   $('chartSymbolSelect').addEventListener('change', e => {
     if (e.target.value) drawPriceChart(e.target.value);
   });
+  $('chartRangeSelect').addEventListener('change', () => {
+    const sym = $('chartSymbolSelect').value;
+    if (sym) drawPriceChart(sym);
+  });
+
+  // History order (giao dịch cũ)
+  $('addHistoryOrderBtn').addEventListener('click', () => {
+    $('hist-symbol').value = ''; $('hist-price').value = '';
+    $('hist-qty').value = ''; $('hist-fee').value = '';
+    $('hist-avgbuy').value = ''; $('hist-note').value = '';
+    $('hist-type').value = 'buy';
+    $('hist-date').value = today();
+    $('histOrderSummary').innerHTML = '';
+    openModal('historyOrderModal');
+  });
+  ['hist-price','hist-qty','hist-fee','hist-avgbuy','hist-type'].forEach(id =>
+    $(id)?.addEventListener('input', updateHistOrderSummary)
+  );
+  $('saveHistoryOrderBtn').addEventListener('click', saveHistoryOrder);
 
   // Initial load
   refreshAllPrices().then(() => {
     setSyncStatus('ok', config.gsUrl ? 'Google Sheets ✓' : 'Lưu local');
+    autoFetchAllNames(); // tự động lấy tên công ty
   });
   startRefreshTimer();
   checkDailyReport();
 
   // Sync from GS on load
-  if (config.gsUrl) syncFromGS();
+  if (config.gsUrl) syncFromGS().then(() => autoFetchAllNames());
 });
 
 // ─── ORDER MODAL ─────────────────────────────────────────────
@@ -2590,6 +2986,94 @@ function exportAll() {
   a.href = url; a.download = `vnstock-backup-${today()}.json`;
   a.click(); URL.revokeObjectURL(url);
   toast('Đã xuất dữ liệu JSON', 'success');
+}
+
+// ─── HISTORY ORDER FUNCTIONS ──────────────────────────────────
+function updateHistOrderSummary() {
+  const type    = $('hist-type').value;
+  const price   = parseFloat($('hist-price').value) || 0;
+  const qty     = parseInt($('hist-qty').value) || 0;
+  const fee     = parseFloat($('hist-fee').value) || 0;
+  const avgBuy  = parseFloat($('hist-avgbuy').value) || 0;
+  if (!price || !qty) { $('histOrderSummary').innerHTML = ''; return; }
+  const total = price * qty;
+  let pnlLine = '';
+  if (type === 'sell' && avgBuy > 0) {
+    const pnl = (price - avgBuy) * qty - fee;
+    const pct = ((price - avgBuy) / avgBuy) * 100;
+    const cls = pnl >= 0 ? 'color:var(--neon-green)' : 'color:var(--neon-red)';
+    pnlLine = `<div style="${cls};font-weight:700">Lãi/Lỗ ước tính: ${fmtMoney(pnl)} (${fmtPct(pct)})</div>`;
+  }
+  $('histOrderSummary').innerHTML = `
+    <div>Tổng giá trị: <b>${fmtMoney(total)}</b></div>
+    <div>Phí + thuế: ${fmtMoney(fee)}</div>
+    ${pnlLine}
+  `;
+}
+
+async function saveHistoryOrder() {
+  const symbol  = $('hist-symbol').value.trim().toUpperCase();
+  const type    = $('hist-type').value;
+  const price   = parseFloat($('hist-price').value);
+  const qty     = parseInt($('hist-qty').value);
+  const fee     = parseFloat($('hist-fee').value) || 0;
+  const avgBuy  = parseFloat($('hist-avgbuy').value) || 0;
+  const note    = $('hist-note').value.trim();
+  const dateVal = $('hist-date').value;
+
+  if (!symbol || !price || !qty) { toast('Điền đầy đủ Mã, Giá, Khối lượng', 'warning'); return; }
+
+  let pnl = null;
+  if (type === 'sell') {
+    const ref = avgBuy > 0 ? avgBuy : price;
+    pnl = (price - ref) * qty - fee;
+  }
+
+  const record = {
+    symbol, type,
+    orderPrice: price, quantity: qty, filledQty: qty,
+    fillPrice: price, avgBuyPrice: avgBuy || null,
+    status: 'filled', fees: fee, pnl,
+    time: dateVal ? new Date(dateVal).toISOString() : now(),
+    note: note || 'GD lịch sử', importedFrom: 'manual-history'
+  };
+
+  await saveRecord('orders', record);
+
+  // Cập nhật portfolio nếu là lệnh mua
+  if (type === 'buy') {
+    const existing = (localData.portfolio || []).find(p => p.symbol === symbol);
+    if (existing) {
+      const newTotal  = existing.avgCost * existing.quantity + price * qty;
+      const newQty    = existing.quantity + qty;
+      existing.avgCost = Math.round((newTotal / newQty) * 100) / 100;
+      existing.quantity = newQty;
+      await saveRecord('portfolio', existing);
+    } else {
+      await saveRecord('portfolio', { symbol, quantity: qty, avgCost: price, addedAt: now() });
+    }
+  } else if (type === 'sell') {
+    const existing = (localData.portfolio || []).find(p => p.symbol === symbol);
+    if (existing) {
+      const newQty = existing.quantity - qty;
+      if (newQty <= 0) await deleteRecord('portfolio', existing.id);
+      else { existing.quantity = newQty; await saveRecord('portfolio', existing); }
+    }
+  }
+
+  // Thêm vào watchlist nếu chưa có
+  if (!(localData.watchlist || []).find(w => w.symbol === symbol)) {
+    const name = await fetchCompanyName(symbol);
+    await saveRecord('watchlist', {
+      symbol, name, alertUpper: config.defaultAlertUpper,
+      alertLower: config.defaultAlertLower, targetBuy: 0, targetSell: 0,
+      note: 'Auto-added', addedAt: now()
+    });
+  }
+
+  closeModal('historyOrderModal');
+  toast(`Đã lưu GD lịch sử ${type === 'buy' ? 'MUA' : 'BÁN'} ${symbol}`, 'success');
+  renderCurrentPage();
 }
 
 // ─── JSON IMPORT (BACKUP) ─────────────────────────────────────
