@@ -786,6 +786,11 @@ body {
         <button class="btn btn-success" id="addBuyOrderBtn"><i class="fas fa-arrow-up"></i> Đặt lệnh Mua</button>
         <button class="btn btn-danger" id="addSellOrderBtn"><i class="fas fa-arrow-down"></i> Đặt lệnh Bán</button>
         <button class="btn btn-secondary" id="addHistoryOrderBtn"><i class="fas fa-history"></i> Thêm GD cũ</button>
+        <label class="btn btn-secondary" style="cursor:pointer" title="Import Excel lệnh">
+          <i class="fas fa-file-import"></i> Import Excel
+          <input type="file" id="importExcelOrders" accept=".xlsx,.xls" style="display:none" />
+        </label>
+        <button class="btn btn-outline-danger" id="resetOrdersBtn"><i class="fas fa-undo"></i> Reset dữ liệu</button>
         <select class="select-sm" id="orderFilter">
           <option value="all">Tất cả lệnh</option>
           <option value="pending">Chờ khớp</option>
@@ -793,15 +798,33 @@ body {
           <option value="cancelled">Đã huỷ</option>
         </select>
       </div>
+
+      <!-- Import Excel preview (ẩn, hiện khi chọn file) -->
+      <div id="importExcelPreview" style="display:none;margin-bottom:12px" class="card">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <span id="importExcelCount" style="font-size:0.82rem;font-weight:600"></span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" id="confirmImportExcelBtn"><i class="fas fa-check"></i> Xác nhận import</button>
+            <button class="btn btn-secondary btn-sm" onclick="cancelImportExcel()"><i class="fas fa-times"></i> Huỷ</button>
+          </div>
+        </div>
+        <div class="table-responsive" style="max-height:220px;overflow-y:auto">
+          <table class="data-table" id="importPreviewTable">
+            <thead><tr><th>Mã</th><th>Loại</th><th>Giá đặt</th><th>KL</th><th>Trạng thái</th><th>Ngày</th></tr></thead>
+            <tbody id="importPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header">
-          <h3><i class="fas fa-exchange-alt"></i> Nhật ký lệnh (Giả lập)</h3>
-          <span class="badge-info">Không giao dịch thật</span>
+          <h3><i class="fas fa-exchange-alt"></i> Nhật ký lệnh</h3>
+          <span class="badge-info">Theo dõi & giả lập</span>
         </div>
         <div class="table-responsive">
           <table class="data-table">
-            <thead><tr><th>Thời gian</th><th>Mã / Tên</th><th>Loại</th><th>Giá đặt</th><th>KL</th><th>Giá khớp</th><th>Trạng thái</th><th>Lãi/Lỗ (VND)</th><th>%L/L vốn</th><th>Thao tác</th></tr></thead>
-            <tbody id="ordersTableBody"><tr><td colspan="8" class="empty-state">Chưa có lệnh nào.</td></tr></tbody>
+            <thead><tr><th>Thời gian</th><th>Mã / Tên</th><th>Loại</th><th>Giá đặt</th><th>KL</th><th>Giá khớp</th><th>Trạng thái</th><th>Lãi/Lỗ (VND)</th><th>% L/L vốn</th><th>Thao tác</th></tr></thead>
+            <tbody id="ordersTableBody"><tr><td colspan="10" class="empty-state">Chưa có lệnh nào.</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -941,34 +964,6 @@ body {
           <button class="btn btn-primary" id="saveAlertSettingsBtn"><i class="fas fa-save"></i> Lưu</button>
         </div>
 
-        <!-- Import Excel Orders -->
-        <div class="card">
-          <div class="card-header"><h3><i class="fas fa-file-excel"></i> Import lệnh từ Excel</h3></div>
-          <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.75rem;color:var(--text-secondary);line-height:1.6">
-            <b style="color:var(--neon-cyan)">📋 Định dạng file Excel cần có các cột:</b><br>
-            <code style="color:var(--neon-green)">Mã | Loại lệnh | GD | KL đặt | Giá trị đặt | Giá đặt | KL khớp | Giá khớp | Ngày đặt | Trạng thái</code><br>
-            <span style="color:var(--text-muted)">GD = "Mua" / "Bán" | Trạng thái = "Chờ kích hoạt" / "Đã khớp" / "Đã huỷ"</span><br>
-            <b style="color:var(--neon-orange)">⚠ Mỗi lần import sẽ thay thế TOÀN BỘ nhật ký lệnh hiện tại</b>
-          </div>
-          <div class="form-group">
-            <label>Chọn file Excel (.xlsx, .xls)</label>
-            <input type="file" id="importExcelOrders" accept=".xlsx,.xls" />
-          </div>
-          <div id="importExcelPreview" style="margin-top:8px;display:none">
-            <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px" id="importExcelCount"></div>
-            <div class="table-responsive" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
-              <table class="data-table" id="importPreviewTable">
-                <thead><tr><th>Mã</th><th>Loại</th><th>Giá đặt</th><th>KL</th><th>Trạng thái</th><th>Ngày</th></tr></thead>
-                <tbody id="importPreviewBody"></tbody>
-              </table>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:8px">
-              <button class="btn btn-primary" id="confirmImportExcelBtn" style="flex:1"><i class="fas fa-check"></i> Xác nhận import</button>
-              <button class="btn btn-secondary" onclick="cancelImportExcel()"><i class="fas fa-times"></i> Huỷ</button>
-            </div>
-          </div>
-        </div>
-
         <!-- Data Management -->
         <div class="card">
           <div class="card-header"><h3><i class="fas fa-database"></i> Quản lý dữ liệu</h3></div>
@@ -1069,56 +1064,102 @@ body {
 <!-- History Order Modal (giao dịch đã thực hiện trước đây) -->
 <div class="modal" id="historyOrderModal">
   <div class="modal-backdrop" onclick="closeModal('historyOrderModal')"></div>
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:560px">
     <div class="modal-header">
       <h3><i class="fas fa-history"></i> Thêm giao dịch lịch sử</h3>
       <button class="btn-icon" onclick="closeModal('historyOrderModal')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
-      <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:12px">Nhập thủ công các giao dịch mua/bán đã thực hiện trước đây để theo dõi hiệu suất tổng thể.</p>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Mã CK *</label>
-          <input type="text" id="hist-symbol" class="input-upper" placeholder="VD: VNM" maxlength="10" />
-        </div>
-        <div class="form-group">
-          <label>Loại giao dịch *</label>
-          <select id="hist-type">
-            <option value="buy">Mua</option>
-            <option value="sell">Bán</option>
-          </select>
-        </div>
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;margin-bottom:14px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <button id="histTab1" onclick="showHistTab(1)" style="flex:1;padding:7px;background:var(--neon-cyan);color:#000;border:none;cursor:pointer;font-family:var(--font-mono);font-size:0.78rem;font-weight:700">✏️ Nhập thủ công</button>
+        <button id="histTab2" onclick="showHistTab(2)" style="flex:1;padding:7px;background:var(--bg-input);color:var(--text-secondary);border:none;cursor:pointer;font-family:var(--font-mono);font-size:0.78rem">📋 Nhập nhiều dòng</button>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Giá khớp (VND) *</label>
-          <input type="number" id="hist-price" placeholder="Giá thực hiện" min="0" />
+
+      <!-- Tab 1: Nhập thủ công từng GD -->
+      <div id="histTabContent1">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Mã CK *</label>
+            <input type="text" id="hist-symbol" class="input-upper" placeholder="VD: VNM" maxlength="10" />
+          </div>
+          <div class="form-group">
+            <label>Loại *</label>
+            <select id="hist-type">
+              <option value="buy">Mua</option>
+              <option value="sell">Bán</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Giá khớp (VND) *</label>
+            <input type="number" id="hist-price" placeholder="Giá thực hiện" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Khối lượng *</label>
+            <input type="number" id="hist-qty" placeholder="Số lượng CP" min="1" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ngày GD *</label>
+            <input type="date" id="hist-date" />
+          </div>
+          <div class="form-group">
+            <label>Phí + Thuế (VND)</label>
+            <input type="number" id="hist-fee" placeholder="0" min="0" />
+          </div>
         </div>
         <div class="form-group">
-          <label>Khối lượng *</label>
-          <input type="number" id="hist-qty" placeholder="Số lượng CP" min="1" />
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Ngày giao dịch *</label>
-        <input type="date" id="hist-date" />
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Phí + Thuế (VND)</label>
-          <input type="number" id="hist-fee" placeholder="0" min="0" />
+          <label>Giá vốn mua TB (nếu là lệnh bán)</label>
+          <input type="number" id="hist-avgbuy" placeholder="Để trống = tự tính từ lệnh mua" min="0" />
+          <p class="form-hint">Dùng để tính P&amp;L chính xác cho lệnh bán</p>
         </div>
         <div class="form-group">
-          <label>Giá vốn mua TB (nếu bán)</label>
-          <input type="number" id="hist-avgbuy" placeholder="Để trống = tự tính" min="0" />
-          <p class="form-hint" style="font-size:0.68rem">Dùng để tính P&L cho lệnh bán</p>
+          <label>Ghi chú</label>
+          <input type="text" id="hist-note" placeholder="Mô tả giao dịch..." />
         </div>
+        <div id="histOrderSummary" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:0.78rem;color:var(--text-secondary);margin-top:4px;display:none"></div>
       </div>
-      <div class="form-group">
-        <label>Ghi chú</label>
-        <input type="text" id="hist-note" placeholder="Mô tả giao dịch..." />
+
+      <!-- Tab 2: Nhập nhiều dòng (mã, KL, giá mua, giá bán) -->
+      <div id="histTabContent2" style="display:none">
+        <div style="background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);border-radius:6px;padding:10px;margin-bottom:10px;font-size:0.75rem;color:var(--text-secondary);line-height:1.7">
+          <b style="color:var(--neon-cyan)">Format mỗi dòng:</b>
+          <code style="display:block;color:var(--neon-green);margin:4px 0">MÃ  KL  GIÁ_MUA  [GIÁ_BÁN]</code>
+          Nếu có <b>Giá bán</b> → tự tạo cặp lệnh Mua + Bán đã khớp.<br>
+          Nếu chỉ có <b>Giá mua</b> → tạo lệnh Mua đang nắm giữ.<br>
+          <b style="color:var(--neon-yellow)">Ví dụ:</b>
+          <code style="display:block;color:var(--text-primary);margin-top:4px;white-space:pre">FPT  1000  65000  127000
+VNM  500   70000
+HSG  2000  13000  24000</code>
+        </div>
+        <div class="form-row" style="margin-bottom:8px">
+          <div class="form-group">
+            <label>Ngày mua (mặc định)</label>
+            <input type="date" id="hist-multi-buydate" />
+          </div>
+          <div class="form-group">
+            <label>Ngày bán (nếu có)</label>
+            <input type="date" id="hist-multi-selldate" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nhập danh sách GD</label>
+          <textarea id="hist-multi-text" placeholder="FPT  1000  65000  127000&#10;VNM  500   70000&#10;HSG  2000  13000  24000" style="min-height:120px;font-family:var(--font-mono);font-size:0.82rem"></textarea>
+        </div>
+        <div id="histMultiPreview" style="margin-top:8px;display:none">
+          <div style="font-size:0.75rem;color:var(--neon-cyan);margin-bottom:6px" id="histMultiCount"></div>
+          <div class="table-responsive" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
+            <table class="data-table">
+              <thead><tr><th>Mã</th><th>KL</th><th>Giá mua</th><th>Giá bán</th><th>Lãi/Lỗ</th></tr></thead>
+              <tbody id="histMultiPreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="previewHistMulti()"><i class="fas fa-eye"></i> Xem trước</button>
       </div>
-      <div id="histOrderSummary" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:0.78rem;color:var(--text-secondary);margin-top:4px"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('historyOrderModal')">Huỷ</button>
@@ -2435,13 +2476,119 @@ function drawPortfolioChart(portfolio) {
   const canvas = $('portfolioChart');
   if (!canvas) return;
   if (portfolioChart) portfolioChart.destroy();
-  const colors = ['#00d4ff','#00ff88','#bf5fff','#ff8c00','#ff3355','#ffe033','#4a9eff'];
-  const labels = portfolio.map(p => p.symbol);
-  const values = portfolio.map(p => (priceCache[p.symbol]?.price||p.avgCost)*p.quantity);
+
+  const colors = ['#00d4ff','#00ff88','#bf5fff','#ff8c00','#ff3355','#ffe033','#4a9eff','#ff6eb4','#00e5cc','#ffb347'];
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+
+  // Tính giá trị thị trường cho từng vị thế
+  const items = portfolio.map((p, i) => {
+    const price = priceCache[p.symbol]?.price || p.avgCost;
+    const mv    = (price || 0) * (p.quantity || 0);
+    const name  = p.name || (localData.watchlist||[]).find(w=>w.symbol===p.symbol)?.name || p.symbol;
+    return { symbol: p.symbol, name, mv, color: colors[i % colors.length] };
+  }).filter(x => x.mv > 0);
+
+  const total = items.reduce((s, x) => s + x.mv, 0);
+
+  // Label = "SYM\nTên\nX.X%" — chỉ hiển thị trên slice đủ lớn (>5%)
+  const labels = items.map(x => {
+    const pct = total > 0 ? (x.mv / total * 100) : 0;
+    const shortName = x.name.length > 12 ? x.name.slice(0, 12) + '…' : x.name;
+    return pct >= 5 ? `${x.symbol} ${pct.toFixed(1)}%` : x.symbol;
+  });
+
   portfolioChart = new Chart(canvas, {
     type: 'doughnut',
-    data: { labels, datasets: [{ data: values, backgroundColor: colors.slice(0,labels.length), borderColor: 'var(--bg-card)', borderWidth: 2 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#7f8fa6',font:{size:11},boxWidth:12} } } }
+    data: {
+      labels,
+      datasets: [{
+        data: items.map(x => x.mv),
+        backgroundColor: items.map(x => x.color),
+        borderColor: isDark ? '#111720' : '#ffffff',
+        borderWidth: 2,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '52%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            color: isDark ? '#7f8fa6' : '#4a5568',
+            font: { family: 'JetBrains Mono', size: 11 },
+            boxWidth: 12,
+            padding: 8,
+            generateLabels: (chart) => {
+              const ds = chart.data.datasets[0];
+              const tot = ds.data.reduce((s, v) => s + v, 0);
+              return chart.data.labels.map((lbl, i) => {
+                const val = ds.data[i];
+                const pct = tot > 0 ? (val / tot * 100).toFixed(1) : 0;
+                const sym = items[i]?.symbol || lbl;
+                const nm  = items[i]?.name || '';
+                const shortNm = nm && nm !== sym ? ` ${nm.length > 10 ? nm.slice(0,10)+'…' : nm}` : '';
+                return {
+                  text: `${sym}${shortNm} — ${pct}%`,
+                  fillStyle: ds.backgroundColor[i],
+                  strokeStyle: ds.backgroundColor[i],
+                  lineWidth: 0,
+                  index: i
+                };
+              });
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const val = ctx.raw;
+              const pct = total > 0 ? (val / total * 100).toFixed(1) : 0;
+              const sym = items[ctx.dataIndex]?.symbol || '';
+              const nm  = items[ctx.dataIndex]?.name  || '';
+              return [
+                ` ${sym}${nm ? ' – ' + nm : ''}`,
+                ` Giá trị: ${fmtMoney(val)}`,
+                ` Tỷ trọng: ${pct}%`
+              ];
+            }
+          }
+        },
+        // Plugin vẽ text % trực tiếp lên slice đủ lớn
+        datalabels: false
+      }
+    },
+    plugins: [{
+      id: 'sliceLabels',
+      afterDraw(chart) {
+        const { ctx, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        const tot  = data.datasets[0].data.reduce((s, v) => s + v, 0);
+        ctx.save();
+        meta.data.forEach((arc, i) => {
+          const val = data.datasets[0].data[i];
+          const pct = tot > 0 ? (val / tot * 100) : 0;
+          if (pct < 6) return; // quá nhỏ, bỏ qua
+          const sym  = items[i]?.symbol || '';
+          const pctStr = pct.toFixed(1) + '%';
+          const { x, y } = arc.tooltipPosition();
+          ctx.fillStyle = '#fff';
+          ctx.font = `bold 11px JetBrains Mono, monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(0,0,0,0.6)';
+          ctx.shadowBlur = 4;
+          // Hai dòng: mã + %
+          ctx.fillText(sym,    x, y - 7);
+          ctx.font = `10px JetBrains Mono, monospace`;
+          ctx.fillText(pctStr, x, y + 7);
+          ctx.shadowBlur = 0;
+        });
+        ctx.restore();
+      }
+    }]
   });
 }
 
@@ -2877,13 +3024,41 @@ document.addEventListener('DOMContentLoaded', () => {
     $('hist-avgbuy').value = ''; $('hist-note').value = '';
     $('hist-type').value = 'buy';
     $('hist-date').value = today();
-    $('histOrderSummary').innerHTML = '';
+    if ($('histOrderSummary')) $('histOrderSummary').style.display = 'none';
+    pendingMultiOrders = [];
+    $('histMultiPreview').style.display = 'none';
+    $('hist-multi-text').value = '';
+    $('hist-multi-buydate').value = today();
+    $('hist-multi-selldate').value = '';
+    showHistTab(1);
     openModal('historyOrderModal');
   });
-  ['hist-price','hist-qty','hist-fee','hist-avgbuy','hist-type'].forEach(id =>
+  ['hist-price','hist-qty','hist-fee','hist-avgbuy','hist-type','hist-symbol'].forEach(id =>
     $(id)?.addEventListener('input', updateHistOrderSummary)
   );
   $('saveHistoryOrderBtn').addEventListener('click', saveHistoryOrder);
+
+  // Reset orders + portfolio + watchlist
+  $('resetOrdersBtn').addEventListener('click', async () => {
+    const choice = confirm(
+      'RESET dữ liệu lệnh & danh mục?\n\n' +
+      '• Toàn bộ Nhật ký lệnh sẽ bị xoá\n' +
+      '• Danh mục đầu tư sẽ bị xoá\n' +
+      '• Danh mục quan tâm GIỮ NGUYÊN\n\n' +
+      'Sau đó import lại file Excel để đồng bộ đúng.'
+    );
+    if (!choice) return;
+    localData.orders    = [];
+    localData.portfolio = [];
+    saveLocalData();
+    // Xoá trên GS nếu đã kết nối
+    if (config.gsUrl) {
+      await gsCall({ action: 'replaceAll', sheet: 'orders',    records: [] });
+      await gsCall({ action: 'replaceAll', sheet: 'portfolio', records: [] });
+    }
+    toast('Đã reset Nhật ký lệnh & Danh mục đầu tư. Hãy import lại dữ liệu.', 'info', 5000);
+    renderCurrentPage();
+  });
 
   // Initial load
   refreshAllPrices().then(() => {
@@ -2988,30 +3163,133 @@ function exportAll() {
   toast('Đã xuất dữ liệu JSON', 'success');
 }
 
+// ─── PNL CALCULATION (ĐÚNG) ──────────────────────────────────
+// Tính giá vốn TB và PnL cho lệnh bán dựa trên tất cả lệnh mua trước đó của symbol đó
+function calcAvgBuyPrice(symbol, beforeOrderId) {
+  const orders = (localData.orders || []);
+  // Lấy các lệnh mua đã khớp, theo thứ tự thời gian, trước lệnh bán hiện tại
+  const idx = orders.findIndex(o => o.id === beforeOrderId);
+  const prior = idx >= 0 ? orders.slice(0, idx) : orders;
+  const buys = prior.filter(o => o.symbol === symbol && o.type === 'buy' && o.status === 'filled');
+  if (buys.length === 0) return 0;
+  const totalQty  = buys.reduce((s, o) => s + (Number(o.quantity) || 0), 0);
+  const totalCost = buys.reduce((s, o) => s + (Number(o.orderPrice || o.fillPrice || 0)) * (Number(o.quantity) || 0), 0);
+  return totalQty > 0 ? totalCost / totalQty : 0;
+}
+
+// Tính PnL cho 1 lệnh bán:
+// PnL = (giá bán - giá vốn TB) × KL - phí
+function calcOrderPnl(order) {
+  if (order.type !== 'sell' || order.status !== 'filled') return null;
+  const sellPrice = Number(order.fillPrice || order.orderPrice || 0);
+  const qty       = Number(order.quantity || 0);
+  const fees      = Number(order.fees || 0);
+  // Dùng avgBuyPrice nếu đã lưu, không thì tính từ lịch sử
+  const avgBuy    = Number(order.avgBuyPrice || 0) || calcAvgBuyPrice(order.symbol, order.id);
+  if (!avgBuy || !sellPrice || !qty) return null;
+  return (sellPrice - avgBuy) * qty - fees;
+}
+
+// Rebuild toàn bộ PnL và portfolio từ danh sách lệnh
+function rebuildPortfolioFromOrders() {
+  const orders = [...(localData.orders || [])].sort((a, b) => new Date(a.time||0) - new Date(b.time||0));
+  // Tính lại pnl cho mỗi lệnh bán
+  orders.forEach(o => {
+    if (o.type === 'sell' && o.status === 'filled') {
+      o.pnl = calcOrderPnl(o);
+    }
+  });
+  localData.orders = orders;
+
+  // Rebuild portfolio: FIFO position tracking
+  const positions = {}; // symbol -> { quantity, totalCost }
+  orders.forEach(o => {
+    if (o.status !== 'filled') return;
+    const sym = o.symbol;
+    if (!positions[sym]) positions[sym] = { quantity: 0, totalCost: 0 };
+    const qty    = Number(o.quantity || 0);
+    const price  = Number(o.fillPrice || o.orderPrice || 0);
+    if (o.type === 'buy') {
+      positions[sym].quantity  += qty;
+      positions[sym].totalCost += price * qty;
+    } else if (o.type === 'sell') {
+      const sellQty = Math.min(qty, positions[sym].quantity);
+      if (positions[sym].quantity > 0) {
+        const avgCostBefore = positions[sym].totalCost / positions[sym].quantity;
+        positions[sym].totalCost -= avgCostBefore * sellQty;
+      }
+      positions[sym].quantity -= sellQty;
+      if (positions[sym].quantity < 0) positions[sym].quantity = 0;
+    }
+  });
+
+  // Rebuild localData.portfolio
+  const existing = localData.portfolio || [];
+  const newPortfolio = [];
+  Object.entries(positions).forEach(([sym, pos]) => {
+    if (pos.quantity <= 0) return;
+    const avgCost = pos.quantity > 0 ? pos.totalCost / pos.quantity : 0;
+    const exPos = existing.find(p => p.symbol === sym);
+    newPortfolio.push({
+      id:       exPos?.id  || uid(),
+      symbol:   sym,
+      name:     exPos?.name || '',
+      quantity: Math.round(pos.quantity),
+      avgCost:  Math.round(avgCost * 100) / 100,
+      addedAt:  exPos?.addedAt || now()
+    });
+  });
+  // Giữ lại các vị thế được thêm thủ công (không từ orders)
+  existing.forEach(p => {
+    if (!newPortfolio.find(n => n.symbol === p.symbol) && p.manualEntry) {
+      newPortfolio.push(p);
+    }
+  });
+  localData.portfolio = newPortfolio;
+  saveLocalData();
+}
+
 // ─── HISTORY ORDER FUNCTIONS ──────────────────────────────────
+function showHistTab(n) {
+  $('histTabContent1').style.display = n === 1 ? 'block' : 'none';
+  $('histTabContent2').style.display = n === 2 ? 'block' : 'none';
+  $('histTab1').style.background = n === 1 ? 'var(--neon-cyan)' : 'var(--bg-input)';
+  $('histTab1').style.color = n === 1 ? '#000' : 'var(--text-secondary)';
+  $('histTab2').style.background = n === 2 ? 'var(--neon-cyan)' : 'var(--bg-input)';
+  $('histTab2').style.color = n === 2 ? '#000' : 'var(--text-secondary)';
+}
+
 function updateHistOrderSummary() {
-  const type    = $('hist-type').value;
-  const price   = parseFloat($('hist-price').value) || 0;
-  const qty     = parseInt($('hist-qty').value) || 0;
-  const fee     = parseFloat($('hist-fee').value) || 0;
-  const avgBuy  = parseFloat($('hist-avgbuy').value) || 0;
-  if (!price || !qty) { $('histOrderSummary').innerHTML = ''; return; }
+  const type   = $('hist-type').value;
+  const price  = parseFloat($('hist-price').value)  || 0;
+  const qty    = parseInt($('hist-qty').value)       || 0;
+  const fee    = parseFloat($('hist-fee').value)     || 0;
+  const avgBuy = parseFloat($('hist-avgbuy').value)  || 0;
+  const el     = $('histOrderSummary');
+  if (!price || !qty) { el.style.display = 'none'; return; }
   const total = price * qty;
   let pnlLine = '';
-  if (type === 'sell' && avgBuy > 0) {
-    const pnl = (price - avgBuy) * qty - fee;
-    const pct = ((price - avgBuy) / avgBuy) * 100;
-    const cls = pnl >= 0 ? 'color:var(--neon-green)' : 'color:var(--neon-red)';
-    pnlLine = `<div style="${cls};font-weight:700">Lãi/Lỗ ước tính: ${fmtMoney(pnl)} (${fmtPct(pct)})</div>`;
+  if (type === 'sell') {
+    const ref = avgBuy > 0 ? avgBuy
+      : calcAvgBuyPrice($('hist-symbol').value.trim().toUpperCase(), null);
+    if (ref > 0) {
+      const pnl = (price - ref) * qty - fee;
+      const pct = ((price - ref) / ref) * 100;
+      const c = pnl >= 0 ? 'var(--neon-green)' : 'var(--neon-red)';
+      pnlLine = `<div style="color:${c};font-weight:700;margin-top:4px">
+        Lãi/Lỗ ước tính: ${fmtMoney(pnl)} (${fmtPct(pct)})
+        <span style="font-size:0.7rem;color:var(--text-muted)"> — giá vốn TB: ${fmt(ref,0)}</span>
+      </div>`;
+    }
   }
-  $('histOrderSummary').innerHTML = `
-    <div>Tổng giá trị: <b>${fmtMoney(total)}</b></div>
-    <div>Phí + thuế: ${fmtMoney(fee)}</div>
-    ${pnlLine}
-  `;
+  el.style.display = 'block';
+  el.innerHTML = `<div>Tổng giá trị: <b>${fmtMoney(total)}</b> | Phí: ${fmtMoney(fee)}</div>${pnlLine}`;
 }
 
 async function saveHistoryOrder() {
+  const activeTab = $('histTabContent2').style.display !== 'none' ? 2 : 1;
+  if (activeTab === 2) { await saveHistMulti(); return; }
+
   const symbol  = $('hist-symbol').value.trim().toUpperCase();
   const type    = $('hist-type').value;
   const price   = parseFloat($('hist-price').value);
@@ -3020,60 +3298,113 @@ async function saveHistoryOrder() {
   const avgBuy  = parseFloat($('hist-avgbuy').value) || 0;
   const note    = $('hist-note').value.trim();
   const dateVal = $('hist-date').value;
-
   if (!symbol || !price || !qty) { toast('Điền đầy đủ Mã, Giá, Khối lượng', 'warning'); return; }
-
-  let pnl = null;
-  if (type === 'sell') {
-    const ref = avgBuy > 0 ? avgBuy : price;
-    pnl = (price - ref) * qty - fee;
-  }
 
   const record = {
     symbol, type,
     orderPrice: price, quantity: qty, filledQty: qty,
-    fillPrice: price, avgBuyPrice: avgBuy || null,
-    status: 'filled', fees: fee, pnl,
-    time: dateVal ? new Date(dateVal).toISOString() : now(),
+    fillPrice:  price,
+    avgBuyPrice: avgBuy || null,
+    status: 'filled', fees: fee, pnl: null,
+    time: dateVal ? new Date(dateVal + 'T12:00:00').toISOString() : now(),
     note: note || 'GD lịch sử', importedFrom: 'manual-history'
   };
-
   await saveRecord('orders', record);
+  rebuildPortfolioFromOrders();
 
-  // Cập nhật portfolio nếu là lệnh mua
-  if (type === 'buy') {
-    const existing = (localData.portfolio || []).find(p => p.symbol === symbol);
-    if (existing) {
-      const newTotal  = existing.avgCost * existing.quantity + price * qty;
-      const newQty    = existing.quantity + qty;
-      existing.avgCost = Math.round((newTotal / newQty) * 100) / 100;
-      existing.quantity = newQty;
-      await saveRecord('portfolio', existing);
-    } else {
-      await saveRecord('portfolio', { symbol, quantity: qty, avgCost: price, addedAt: now() });
-    }
-  } else if (type === 'sell') {
-    const existing = (localData.portfolio || []).find(p => p.symbol === symbol);
-    if (existing) {
-      const newQty = existing.quantity - qty;
-      if (newQty <= 0) await deleteRecord('portfolio', existing.id);
-      else { existing.quantity = newQty; await saveRecord('portfolio', existing); }
-    }
-  }
-
-  // Thêm vào watchlist nếu chưa có
   if (!(localData.watchlist || []).find(w => w.symbol === symbol)) {
     const name = await fetchCompanyName(symbol);
-    await saveRecord('watchlist', {
-      symbol, name, alertUpper: config.defaultAlertUpper,
-      alertLower: config.defaultAlertLower, targetBuy: 0, targetSell: 0,
-      note: 'Auto-added', addedAt: now()
-    });
+    await saveRecord('watchlist', { symbol, name, alertUpper: config.defaultAlertUpper, alertLower: config.defaultAlertLower, targetBuy: 0, targetSell: 0, note: 'Auto-added', addedAt: now() });
   }
-
   closeModal('historyOrderModal');
-  toast(`Đã lưu GD lịch sử ${type === 'buy' ? 'MUA' : 'BÁN'} ${symbol}`, 'success');
+  toast(`Đã lưu GD ${type === 'buy' ? 'MUA' : 'BÁN'} ${symbol}`, 'success');
+  if (!priceCache[symbol]) { const pd = await fetchPrice(symbol); if (pd) priceCache[symbol] = pd; }
   renderCurrentPage();
+}
+
+// Xem trước nhập nhiều dòng
+let pendingMultiOrders = [];
+function previewHistMulti() {
+  const text     = $('hist-multi-text').value.trim();
+  const buyDate  = $('hist-multi-buydate').value;
+  const sellDate = $('hist-multi-selldate').value;
+  if (!text) { toast('Nhập dữ liệu trước', 'warning'); return; }
+
+  pendingMultiOrders = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const rows  = [];
+  let parseErr = 0;
+
+  lines.forEach(line => {
+    // Tách bằng khoảng trắng, tab, dấu phẩy, chấm phẩy
+    const parts = line.split(/[\s,;]+/).filter(Boolean);
+    if (parts.length < 3) { parseErr++; return; }
+    const sym      = parts[0].toUpperCase();
+    const qty      = parseInt(parts[1].replace(/[.,]/g,''));
+    const buyPrice = parseFloat(parts[2].replace(/[.,]/g,''));
+    const sellPri  = parts[3] ? parseFloat(parts[3].replace(/[.,]/g,'')) : null;
+    if (!sym || !qty || !buyPrice) { parseErr++; return; }
+
+    // Xử lý đơn vị: nếu giá < 1000 → đang dùng đơn vị nghìn đồng, nhân 1000
+    const bp = buyPrice < 1000 ? buyPrice * 1000 : buyPrice;
+    const sp = sellPri  ? (sellPri  < 1000 ? sellPri  * 1000 : sellPri)  : null;
+
+    const pnl = sp ? (sp - bp) * qty : null;
+    rows.push({ sym, qty, bp, sp, pnl, buyDate, sellDate });
+
+    // Lệnh mua
+    pendingMultiOrders.push({
+      symbol: sym, type: 'buy', orderPrice: bp, quantity: qty,
+      filledQty: qty, fillPrice: bp, avgBuyPrice: null,
+      status: 'filled', fees: 0, pnl: null,
+      time: buyDate ? new Date(buyDate + 'T09:00:00').toISOString() : now(),
+      note: 'Import GD lịch sử', importedFrom: 'multi-history'
+    });
+    // Lệnh bán (nếu có)
+    if (sp) {
+      pendingMultiOrders.push({
+        symbol: sym, type: 'sell', orderPrice: sp, quantity: qty,
+        filledQty: qty, fillPrice: sp, avgBuyPrice: bp,
+        status: 'filled', fees: 0, pnl: (sp - bp) * qty,
+        time: sellDate ? new Date(sellDate + 'T14:00:00').toISOString() : now(),
+        note: 'Import GD lịch sử', importedFrom: 'multi-history'
+      });
+    }
+  });
+
+  if (parseErr > 0) toast(`${parseErr} dòng không đọc được, bỏ qua`, 'warning');
+  if (rows.length === 0) { toast('Không có dữ liệu hợp lệ', 'error'); return; }
+
+  $('histMultiCount').innerHTML = `<b style="color:var(--neon-cyan)">${rows.length}</b> cổ phiếu, ${pendingMultiOrders.length} lệnh`;
+  $('histMultiPreviewBody').innerHTML = rows.map(r => {
+    const cls = (r.pnl||0) >= 0 ? 'pos' : 'neg';
+    return `<tr>
+      <td><span class="symbol-badge">${r.sym}</span></td>
+      <td>${fmt(r.qty)}</td>
+      <td>${fmt(r.bp,0)}</td>
+      <td>${r.sp ? fmt(r.sp,0) : '<span style="color:var(--text-muted)">Đang nắm</span>'}</td>
+      <td class="${cls}">${r.pnl != null ? fmtMoney(r.pnl) : '--'}</td>
+    </tr>`;
+  }).join('');
+  $('histMultiPreview').style.display = 'block';
+}
+
+async function saveHistMulti() {
+  if (pendingMultiOrders.length === 0) { previewHistMulti(); return; }
+  for (const o of pendingMultiOrders) { o.id = uid(); await saveRecord('orders', o); }
+  rebuildPortfolioFromOrders();
+  // Thêm watchlist cho các symbol mới
+  const syms = [...new Set(pendingMultiOrders.map(o => o.symbol))];
+  for (const sym of syms) {
+    if (!(localData.watchlist||[]).find(w => w.symbol === sym)) {
+      const name = await fetchCompanyName(sym);
+      await saveRecord('watchlist', { symbol: sym, name, alertUpper: config.defaultAlertUpper, alertLower: config.defaultAlertLower, targetBuy: 0, targetSell: 0, note: 'Auto-added', addedAt: now() });
+    }
+  }
+  closeModal('historyOrderModal');
+  toast(`Đã lưu ${pendingMultiOrders.length} lệnh cho ${syms.length} mã CK`, 'success', 4000);
+  pendingMultiOrders = [];
+  await refreshAllPrices();
 }
 
 // ─── JSON IMPORT (BACKUP) ─────────────────────────────────────
@@ -3222,70 +3553,37 @@ async function confirmImportExcel() {
 
   // Thay thế toàn bộ orders
   localData.orders = pendingExcelOrders;
-  saveLocalData();
 
   // Tự động thêm symbols vào watchlist nếu chưa có
   const existSymbols = new Set((localData.watchlist||[]).map(i => i.symbol));
   const newSymbols = [...new Set(pendingExcelOrders.map(o => o.symbol))].filter(s => !existSymbols.has(s));
   for (const sym of newSymbols) {
+    const name = await fetchCompanyName(sym);
     await saveRecord('watchlist', {
-      symbol: sym, name: '', sector: '',
-      alertUpper: config.defaultAlertUpper,
-      alertLower: config.defaultAlertLower,
+      symbol: sym, name, sector: '',
+      alertUpper: config.defaultAlertUpper, alertLower: config.defaultAlertLower,
       targetBuy: 0, targetSell: 0, note: 'Auto-added từ Excel', addedAt: now()
     });
   }
 
-  // Tự động tạo portfolio từ lệnh mua đã khớp (group by symbol)
-  const filledBuys = pendingExcelOrders.filter(o => o.type === 'buy' && o.status === 'filled');
-  if (filledBuys.length > 0) {
-    const bySymbol = {};
-    filledBuys.forEach(o => {
-      if (!bySymbol[o.symbol]) bySymbol[o.symbol] = { totalQty: 0, totalCost: 0 };
-      bySymbol[o.symbol].totalQty += o.quantity;
-      bySymbol[o.symbol].totalCost += o.orderPrice * o.quantity;
-    });
-    // Trừ đi lệnh bán đã khớp
-    const filledSells = pendingExcelOrders.filter(o => o.type === 'sell' && o.status === 'filled');
-    filledSells.forEach(o => {
-      if (bySymbol[o.symbol]) {
-        bySymbol[o.symbol].totalQty -= o.quantity;
-      }
-    });
-    // Update portfolio
-    for (const [sym, d] of Object.entries(bySymbol)) {
-      if (d.totalQty > 0) {
-        const avgCost = d.totalCost / (d.totalQty + filledSells.filter(o=>o.symbol===sym).reduce((s,o)=>s+o.quantity,0));
-        const existingPos = (localData.portfolio||[]).find(p => p.symbol === sym);
-        await saveRecord('portfolio', {
-          id: existingPos?.id || undefined,
-          symbol: sym, quantity: d.totalQty,
-          avgCost: Math.round(avgCost), addedAt: now()
-        });
-      }
-    }
-  }
+  // Tính lại PnL đúng và rebuild portfolio từ lịch sử lệnh
+  rebuildPortfolioFromOrders();
 
-  // Sync to GS if connected (replaceAll để ghi đè toàn bộ)
+  // Sync GS
   if (config.gsUrl) {
     setSyncStatus('syncing', 'Đang đồng bộ GS...');
-    await gsCall({ action: 'replaceAll', sheet: 'orders', records: pendingExcelOrders });
-    // Sync watchlist và portfolio
-    for (const key of ['watchlist', 'portfolio']) {
-      if (localData[key]?.length) {
-        await gsCall({ action: 'replaceAll', sheet: key, records: localData[key] });
-      }
-    }
+    await gsCall({ action: 'replaceAll', sheet: 'orders',    records: localData.orders    });
+    await gsCall({ action: 'replaceAll', sheet: 'portfolio', records: localData.portfolio });
+    await gsCall({ action: 'replaceAll', sheet: 'watchlist', records: localData.watchlist });
     setSyncStatus('ok', 'Google Sheets ✓');
   }
 
-  // Fetch prices cho tất cả symbols mới
   await refreshAllPrices();
+  autoFetchAllNames();
 
-  toast(`✅ Import thành công ${pendingExcelOrders.length} lệnh! Đã thêm ${newSymbols.length} mã mới vào watchlist.`, 'success', 5000);
+  toast(`✅ Import ${pendingExcelOrders.length} lệnh! Portfolio đã được tính lại tự động.`, 'success', 5000);
   cancelImportExcel();
   showPage('orders');
-
   btn.disabled = false;
   btn.innerHTML = '<i class="fas fa-check"></i> Xác nhận import';
 }
