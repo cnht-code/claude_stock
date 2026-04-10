@@ -740,6 +740,10 @@ body {
     <div class="page" id="page-portfolio">
       <div class="page-actions">
         <button class="btn btn-primary" id="addPositionBtn"><i class="fas fa-plus"></i> Thêm vị thế</button>
+        <button class="btn btn-secondary" id="addHistTradBtn"><i class="fas fa-history"></i> Thêm GD cũ</button>
+        <label class="btn btn-secondary" style="cursor:pointer"><i class="fas fa-file-import"></i> Import Excel
+          <input type="file" id="impPosExcel" accept=".xlsx,.xls" style="display:none"/>
+        </label>
       </div>
       <div class="cards-grid">
         <div class="card summary-card">
@@ -776,6 +780,19 @@ body {
         <div class="card-header"><h3><i class="fas fa-chart-pie"></i> Phân bổ danh mục</h3></div>
         <div style="height:260px;position:relative;padding:12px;">
           <canvas id="portfolioChart"></canvas>
+        </div>
+      </div>
+      <!-- Giao dịch cũ (histTrades) -->
+      <div class="card" id="histTradeCard" style="display:none">
+        <div class="card-header">
+          <h3><i class="fas fa-history"></i> Giao dịch cũ (đã đóng)</h3>
+          <span class="card-sub" id="histTradeSummary" style="font-size:.78rem"></span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead><tr><th>Mã</th><th>KL</th><th>Giá mua</th><th>Giá bán</th><th>Lãi/Lỗ (VND)</th><th>% L/L</th><th>Ngày</th><th>Thao tác</th></tr></thead>
+            <tbody id="tbHistTrades"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -823,7 +840,7 @@ body {
         </div>
         <div class="table-responsive">
           <table class="data-table">
-            <thead><tr><th>Thời gian</th><th>Mã / Tên</th><th>Loại</th><th>Giá đặt</th><th>KL</th><th>Giá khớp</th><th>Trạng thái</th><th>Lãi/Lỗ (VND)</th><th>% L/L vốn</th><th>Thao tác</th></tr></thead>
+            <thead><tr><th>Ngày</th><th>Mã / Tên</th><th>Loại</th><th>Giá đặt</th><th>KL đặt</th><th>KL đang có</th><th>Giá khớp</th><th>TT</th><th>Lãi/Lỗ (VND)</th><th>% L/L vốn</th><th>Thao tác</th></tr></thead>
             <tbody id="ordersTableBody"><tr><td colspan="10" class="empty-state">Chưa có lệnh nào.</td></tr></tbody>
           </table>
         </div>
@@ -1033,6 +1050,7 @@ body {
       <button class="btn-icon" onclick="closeModal('orderModal')"><i class="fas fa-times"></i></button>
     </div>
     <div class="modal-body">
+      <input type="hidden" id="order-id" value="" />
       <input type="hidden" id="order-type" value="buy" />
       <div class="form-group"><label>Mã chứng khoán *</label><input type="text" id="order-symbol" class="input-upper" placeholder="VD: VNM" maxlength="10" /></div>
       <div class="form-row">
@@ -1208,17 +1226,225 @@ HSG  2000  13000  24000</code>
       </div>
 
       <div id="gsTabContent1">
-        <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:10px">Cài đặt <strong>lần đầu</strong> — sau này cập nhật code KHÔNG tạo lại:</p>
+        <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:10px">Cài đặt <strong>lần đầu</strong> — v4 tích hợp proxy lấy giá thực tế:</p>
         <ol class="gs-steps">
           <li>Mở <a href="https://docs.google.com/spreadsheets/create" target="_blank">Google Sheets</a> → tạo spreadsheet mới</li>
           <li>Vào <strong>Extensions → Apps Script</strong></li>
           <li>Xoá hết code cũ → nhấn <strong>"Copy Script Code"</strong> bên dưới → Dán vào</li>
-          <li>Nhấn <strong>Deploy → New deployment</strong></li>
-          <li>Chọn type: <strong>Web app</strong> | Execute as: <strong>Me</strong> | Who has access: <strong>Anyone</strong></li>
-          <li>Nhấn <strong>Deploy</strong> → <strong>Authorize access</strong></li>
+          <li>Nhấn <strong>Deploy → New deployment → Web app</strong></li>
+          <li>Execute as: <strong>Me</strong> | Who has access: <strong>Anyone</strong> → Deploy</li>
+          <li>Nhấn <strong>Authorize access</strong> khi được hỏi</li>
           <li>Copy <strong>Web app URL</strong> → Dán vào ô URL bên dưới → Lưu</li>
         </ol>
-        <div style="background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.25);border-radius:6px;padding:10px;margin-top:10px;font-size:0.75rem;color:var(--neon-orange)">
+        <div style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:6px;padding:8px 10px;margin-top:8px;font-size:0.75rem;color:var(--neon-green)">
+          ✅ <strong>Apps Script v4</strong>: proxy lấy giá TCBS qua server Google → không bị CORS, giá chính xác thực tế.
+        </div>
+        <div style="background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.25);border-radius:6px;padding:8px 10px;margin-top:6px;font-size:0.75rem;color:var(--neon-orange)">
+          ⚠️ Đã cài trước đây? Dùng tab "Cập nhật code" để giữ URL.
+        </div>
+      </div>
+
+      <div id="gsTabContent2" style="display:none">
+        <p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:10px">Cập nhật code <strong>mà không đổi URL</strong>:</p>
+        <ol class="gs-steps">
+          <li>Mở lại file Apps Script (từ Spreadsheet → Extensions → Apps Script)</li>
+          <li>Xoá hết code cũ → Dán code mới từ nút bên dưới</li>
+          <li>Nhấn <strong>Deploy → Manage deployments</strong></li>
+          <li>Nhấn biểu tượng ✏️ <strong>Edit</strong> (cây bút) trên deployment hiện tại</li>
+          <li>Ở mục Version, chọn <strong>"New version"</strong> (không phải tạo deployment mới)</li>
+          <li>Nhấn <strong>Deploy</strong> — URL giữ nguyên ✅</li>
+        </ol>
+        <div style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:6px;padding:10px;margin-top:10px;font-size:0.75rem;color:var(--neon-green)">
+          ✅ URL không thay đổi, không cần cập nhật trong ứng dụng.
+        </div>
+      </div>
+
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <p style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px;font-weight:600">📋 Apps Script Code:</p>
+        <div class="code-block" id="gasCodeBlock" style="font-size:0.68rem;max-height:80px;overflow:hidden;cursor:pointer" onclick="copyGASCode()">
+          // Click để copy toàn bộ code...
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="copyGASCode()"><i class="fas fa-copy"></i> Copy Script Code</button>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('gsModal')">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  VN STOCK TRACKER — Complete JavaScript
+//  Google Sheets backend via Apps Script Web App
+// ============================================================
+
+// ─── APPS SCRIPT CODE (to deploy) ───────────────────────────
+// QUAN TRỌNG: Khi cập nhật code, dùng "Manage deployments → Edit → New version"
+// để GIỮ NGUYÊN URL cũ — KHÔNG tạo New deployment!
+const GAS_CODE = `
+// VN Stock Tracker — Apps Script v5
+// CÁCH UPDATE (GIỮ URL): Deploy > Manage deployments > Edit > New version
+// Lần đầu: Deploy > New deployment > Web app > Execute as Me > Anyone > Deploy
+
+const VER = 5;
+
+function doGet(e)  { return handle(e); }
+function doPost(e) { return handle(e); }
+
+function handle(e) {
+  try {
+    const p    = e.parameter || {};
+    let body   = {};
+    if (e.postData?.contents) { try { body = JSON.parse(e.postData.contents); } catch(_){} }
+    const all  = Object.assign({}, body, p);
+    const act  = all.action;
+    const ss   = SpreadsheetApp.getActiveSpreadsheet();
+
+    if (act === 'ping')
+      return ok({ ver: VER, name: ss.getName(), sheets: ss.getSheets().map(s=>s.getName()) });
+
+    // ── PRICE PROXY (gọi TCBS từ server Google, không bị CORS) ──
+    if (act === 'getPrice') {
+      const syms = String(all.symbols||'').toUpperCase().split(',').map(s=>s.trim()).filter(Boolean);
+      const out  = {};
+      syms.forEach(s => { const d = tcbsPrice(s); if(d) out[s]=d; });
+      return ok(out);
+    }
+    if (act === 'getIndex') {
+      return ok({ VNINDEX: tcbsIndex('VNINDEX'), HNX: tcbsIndex('HNXINDEX'), UPCOM: tcbsIndex('UPCOMINDEX') });
+    }
+    if (act === 'getHistory') {
+      const sym  = String(all.symbol||'').toUpperCase().trim();
+      const days = parseInt(all.days||365);
+      return ok(tcbsHistory(sym, days));
+    }
+    if (act === 'getCompanyName') {
+      const sym = String(all.symbol||'').toUpperCase().trim();
+      return ok({ name: getNameTCBS(sym) });
+    }
+
+    // ── CRUD ──
+    const sh = all.sheet;
+    if (act === 'getAll') {
+      const s = getOrCreate(ss, sh);
+      const v = s.getDataRange().getValues();
+      if (v.length <= 1) return ok([]);
+      const h = v[0].map(x=>String(x).trim());
+      return ok(v.slice(1).map(r=>{
+        const o={};h.forEach((k,i)=>{ o[k]=(r[i]===''||r[i]==null)?null:r[i]; });return o;
+      }).filter(r=>Object.values(r).some(x=>x!=null&&x!=='')));
+    }
+    if (act === 'upsert')     { upsert(getOrCreate(ss,sh), body.record||JSON.parse(all.record||'{}')); return ok({saved:true}); }
+    if (act === 'delete')     { delRow(getOrCreate(ss,sh), all.id); return ok({deleted:true}); }
+    if (act === 'replaceAll') { repAll(getOrCreate(ss,sh), body.records||(all.records?JSON.parse(all.records):[])); return ok({replaced:true}); }
+    return ok({ error:'Unknown: '+act });
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ── TCBS PRICE (đơn vị nghìn đồng → × 1000 = VND) ──
+function tcbsPrice(sym) {
+  try {
+    const to = Math.floor(Date.now()/1000), fr = to-6*86400;
+    const r  = UrlFetchApp.fetch(
+      \`https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=\${sym}&type=stock&resolution=D&from=\${fr}&to=\${to}\`,
+      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }
+    );
+    if (r.getResponseCode()!==200) return null;
+    const bars = JSON.parse(r.getContentText()).data||[];
+    if (!bars.length) return null;
+    const d    = bars[bars.length-1];
+    const prev = bars.length>=2 ? bars[bars.length-2] : d;
+    const close = parseFloat(d.close||d.c||0)*1000;
+    const ref   = parseFloat(prev.close||prev.c||d.open||d.o||0)*1000||close;
+    if (!close) return null;
+    return { price:close, ref, change:close-ref, changePct:ref?(close-ref)/ref*100:0, volume:parseInt(d.volume||d.v||0), source:'TCBS' };
+  } catch(e) { return null; }
+}
+
+function tcbsIndex(code) {
+  try {
+    const to = Math.floor(Date.now()/1000), fr = to-5*86400;
+    const r  = UrlFetchApp.fetch(
+      \`https://apipubaws.tcbs.com.vn/stock-insight/v1/index/historical-hose-index?resolution=D&from=\${fr}&to=\${to}&code=\${code}\`,
+      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }
+    );
+    if (r.getResponseCode()!==200) return null;
+    const bars = JSON.parse(r.getContentText()).data||[];
+    if (!bars.length) return null;
+    const d    = bars[bars.length-1];
+    const prev = bars.length>=2 ? bars[bars.length-2] : d;
+    const price= parseFloat(d.closeIndex||d.close||d.c||0);
+    const ref  = parseFloat(prev.closeIndex||prev.close||prev.c||price);
+    return { price, ref, change:price-ref, changePct:ref?(price-ref)/ref*100:0 };
+  } catch(e) { return null; }
+}
+
+function tcbsHistory(sym, days) {
+  try {
+    const to = Math.floor(Date.now()/1000), fr = to-(days+10)*86400;
+    const r  = UrlFetchApp.fetch(
+      \`https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=\${sym}&type=stock&resolution=D&from=\${fr}&to=\${to}\`,
+      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }
+    );
+    if (r.getResponseCode()!==200) return [];
+    return (JSON.parse(r.getContentText()).data||[]).map(b=>({
+      date:  String(b.tradingDate||b.date||'').slice(0,10),
+      open:  parseFloat(b.open||b.o||0)*1000,
+      high:  parseFloat(b.high||b.h||0)*1000,
+      low:   parseFloat(b.low||b.l||0)*1000,
+      close: parseFloat(b.close||b.c||0)*1000,
+      volume:parseInt(b.volume||b.v||0)
+    })).filter(b=>b.close>100&&b.date.length===10).slice(-days);
+  } catch(e) { return []; }
+}
+
+function getNameTCBS(sym) {
+  try {
+    const r = UrlFetchApp.fetch(
+      \`https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/\${sym}/overview\`,
+      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }
+    );
+    if (r.getResponseCode()!==200) return '';
+    const j = JSON.parse(r.getContentText());
+    return j.companyName||j.shortName||j.name||'';
+  } catch(e) { return ''; }
+}
+
+// ── HELPERS ──
+function ok(data) {
+  return ContentService.createTextOutput(JSON.stringify({ok:true,data})).setMimeType(ContentService.MimeType.JSON);
+}
+function getOrCreate(ss, name) {
+  if (!name) throw new Error('Sheet name required');
+  return ss.getSheetByName(name)||ss.insertSheet(name);
+}
+function repAll(sh, rows) {
+  sh.clearContents();
+  if (!rows||!rows.length) return;
+  const keys = Object.keys(rows[0]);
+  sh.appendRow(keys);
+  rows.forEach(r=>sh.appendRow(keys.map(k=>r[k]==null?'':r[k])));
+}
+function upsert(sh, rec) {
+  const all  = sh.getDataRange().getValues();
+  let hdrs   = all.length?all[0].map(h=>String(h).trim()):[];
+  const newK = Object.keys(rec).filter(k=>!hdrs.includes(k));
+  if (newK.length) { hdrs=hdrs.concat(newK); if(all.length) sh.getRange(1,1,1,hdrs.length).setValues([hdrs]); else{sh.appendRow(hdrs);return upsert(sh,rec);} }
+  const ic = hdrs.indexOf('id'); let row=-1;
+  if (ic>=0&&rec.id!=null) for(let i=1;i<all.length;i++) if(String(all[i][ic])===String(rec.id)){row=i+1;break;}
+  const rd = hdrs.map(h=>rec[h]==null?'':rec[h]);
+  if (row>0) sh.getRange(row,1,1,hdrs.length).setValues([rd]); else sh.appendRow(rd);
+}
+function delRow(sh, id) {
+  const all=sh.getDataRange().getValues(); if(all.length<=1) return;
+  const ic=all[0].map(h=>String(h).trim()).indexOf('id'); if(ic<0) return;
+  for(let i=all.length-1;i>=1;i--) if(String(all[i][ic])===String(id)){sh.deleteRow(i+1);return;}
+}
+`.trim();55,140,0,0.08);border:1px solid rgba(255,140,0,0.25);border-radius:6px;padding:10px;margin-top:10px;font-size:0.75rem;color:var(--neon-orange)">
           ⚠️ <strong>Quan trọng:</strong> URL chỉ tạo 1 lần duy nhất. Mỗi lần thay đổi code sau này dùng tab "Cập nhật code" để giữ nguyên URL.
         </div>
       </div>
@@ -1417,7 +1643,7 @@ let config = {
 
 // ─── LOCAL DATA (fallback khi chưa có GS) ───────────────────
 const LOCAL_KEY = 'vnstock_data_v2';
-let localData = { watchlist: [], portfolio: [], orders: [], alerts: [], priceHistory: {} };
+let localData = { watchlist: [], portfolio: [], orders: [], alerts: [], histTrades: [], priceHistory: {} };
 
 // ─── PRICE CACHE ─────────────────────────────────────────────
 let priceCache = {}; // { symbol: { price, change, changePct, volume, time } }
@@ -1558,297 +1784,171 @@ async function deleteRecord(key, id) {
 }
 
 // ─── PRICE FETCHING ──────────────────────────────────────────
-// Thứ tự ưu tiên: VNDirect → TCBS intraday → TCBS daily → Simulation
-// Đơn vị: VNDirect = VND thực, TCBS = nghìn đồng (×1000)
+// Tất cả gọi qua Google Apps Script proxy (tránh CORS block)
+// GAS gọi TCBS từ server Google → không bị block
+
+async function gsGetPrice(symbols) {
+  if (!config.gsUrl) return {};
+  try {
+    const syms = Array.isArray(symbols) ? symbols.join(',') : symbols;
+    const res  = await fetch(
+      `${config.gsUrl}?action=getPrice&symbols=${encodeURIComponent(syms)}&_t=${Date.now()}`,
+      { method: 'GET' }
+    );
+    if (!res.ok) return {};
+    const json = await res.json();
+    return (json.ok && json.data) ? json.data : {};
+  } catch(e) { return {}; }
+}
+
+async function gsGetIndex() {
+  if (!config.gsUrl) return {};
+  try {
+    const res = await fetch(
+      `${config.gsUrl}?action=getIndex&_t=${Date.now()}`,
+      { method: 'GET' }
+    );
+    if (!res.ok) return {};
+    const json = await res.json();
+    return (json.ok && json.data) ? json.data : {};
+  } catch(e) { return {}; }
+}
+
+async function gsGetHistory(symbol, days) {
+  if (!config.gsUrl) return [];
+  try {
+    const res = await fetch(
+      `${config.gsUrl}?action=getHistory&symbol=${symbol}&days=${days}&_t=${Date.now()}`,
+      { method: 'GET' }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.ok && Array.isArray(json.data)) ? json.data : [];
+  } catch(e) { return []; }
+}
 
 async function fetchPrice(symbol) {
-  const sym = symbol.toUpperCase().trim();
-
-  // ── Nguồn 1: VNDirect latest_price (VND thực, có refPrice) ──
-  try {
-    const res = await fetch(
-      `https://price.vndirect.com.vn/trading/latest_price?symbols=${sym}`,
-      {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(6000)
-      }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      // Response: [{code, matchPrice, priorClosePrice, open, high, low, totalTradeVol, ...}]
-      const arr = Array.isArray(json) ? json : (json.data || json.items || []);
-      const d = arr.find(x => (x.code||x.symbol||'').toUpperCase() === sym);
-      if (d) {
-        const price = d.matchPrice || d.lastPrice || d.close;
-        const ref   = d.priorClosePrice || d.refPrice || d.open || price;
-        if (price && price > 0) {
-          return {
-            price, ref,
-            open: d.open || ref,
-            high: d.high || price, low: d.low || price,
-            volume: d.totalTradeVol || d.totalVol || d.volume || 0,
-            change: price - ref,
-            changePct: ref > 0 ? ((price - ref) / ref) * 100 : 0,
-            time: new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}),
-            source: 'VND'
-          };
-        }
-      }
+  // Nếu đã có GS → dùng proxy
+  if (config.gsUrl) {
+    const data = await gsGetPrice(symbol);
+    const d    = data[symbol.toUpperCase()];
+    if (d && d.price > 0) {
+      return {
+        price:     d.price,
+        ref:       d.ref   || d.price,
+        change:    d.price - (d.ref || d.price),
+        changePct: d.changePct || 0,
+        volume:    d.volume || 0,
+        time:      new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}),
+        source:    d.source || 'GAS'
+      };
     }
-  } catch(e) {}
-
-  // ── Nguồn 2: TCBS intraday (giá realtime trong phiên, đơn vị nghìn đồng) ──
-  try {
-    const res = await fetch(
-      `https://apipubaws.tcbs.com.vn/stock-insight/v1/intraday/${sym}/his/paging?page=0&size=5&headIndex=-1`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Referer': 'https://tcinvest.tcbs.com.vn/',
-          'Origin': 'https://tcinvest.tcbs.com.vn'
-        },
-        signal: AbortSignal.timeout(6000)
-      }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      // Response: {data:[{p, v, t, a}], ...}  p = giá (nghìn đồng)
-      const arr = json?.data || json?.items || [];
-      if (arr.length > 0) {
-        const latest = arr[0]; // newest first
-        const price = (latest.p || latest.price || 0) * 1000;
-        if (price > 0) {
-          // Tìm giá mở cửa để tính % thay đổi
-          const oldest = arr[arr.length - 1];
-          const open = (oldest.p || oldest.price || latest.p) * 1000;
-          // Lấy thêm daily bar để có refPrice
-          const prevClose = await fetchTCBSRefPrice(sym);
-          const ref = prevClose || open;
-          return {
-            price, ref, open,
-            high: Math.max(...arr.map(x => (x.p||0)*1000).filter(v=>v>0), price),
-            low:  Math.min(...arr.map(x => (x.p||0)*1000).filter(v=>v>0), price),
-            volume: arr.reduce((s,x) => s + (x.v||x.volume||0), 0),
-            change: price - ref,
-            changePct: ref > 0 ? ((price - ref) / ref) * 100 : 0,
-            time: new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}),
-            source: 'TCBS-RT'
-          };
-        }
-      }
-    }
-  } catch(e) {}
-
-  // ── Nguồn 3: TCBS daily bar (đóng cửa, đơn vị nghìn đồng) ──
-  try {
-    const toTs = Math.floor(Date.now() / 1000);
-    const frTs = toTs - 5 * 86400; // lấy 5 ngày gần nhất
-    const res = await fetch(
-      `https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=${sym}&type=stock&resolution=D&from=${frTs}&to=${toTs}`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'Referer': 'https://tcinvest.tcbs.com.vn/',
-          'Origin': 'https://tcinvest.tcbs.com.vn'
-        },
-        signal: AbortSignal.timeout(6000)
-      }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      const bars = json?.data || json?.bars || [];
-      if (bars.length >= 1) {
-        const d   = bars[bars.length - 1]; // hôm nay
-        const prev = bars.length >= 2 ? bars[bars.length - 2] : d;
-        // TCBS daily: open/close/high/low đơn vị nghìn đồng
-        const close = (d.close || d.c || 0) * 1000;
-        const open  = (d.open  || d.o || 0) * 1000;
-        const ref   = (prev.close || prev.c || d.open || d.o || 0) * 1000 || open;
-        if (close > 0) {
-          return {
-            price: close, ref, open,
-            high:   (d.high || d.h || 0) * 1000,
-            low:    (d.low  || d.l || 0) * 1000,
-            volume:  d.volume || d.v || 0,
-            change:  close - ref,
-            changePct: ref > 0 ? ((close - ref) / ref) * 100 : 0,
-            time: new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}),
-            source: 'TCBS-D'
-          };
-        }
-      }
-    }
-  } catch(e) {}
-
-  // ── Nguồn 4: SSI Securities list (giá VND thực) ──
-  try {
-    // SSI có endpoint lấy theo symbol
-    const res = await fetch(
-      `https://fc-data.ssi.com.vn/api/v2/Market/InstrumentBidOfferFull?symbol=${sym}`,
-      {
-        headers: { 'Accept': 'application/json' },
-        signal: AbortSignal.timeout(6000)
-      }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      const d = json?.data?.[0] || json?.data;
-      if (d) {
-        const price = d.LastPrice || d.lastPrice || d.currentPrice;
-        const ref   = d.RefPrice  || d.refPrice  || d.closePriceAdjusted || price;
-        if (price && price > 0) {
-          return {
-            price, ref,
-            open: d.OpenPrice || ref,
-            high: d.HighestPrice || price, low: d.LowestPrice || price,
-            volume: d.TotalVol || d.totalVol || 0,
-            change: price - ref,
-            changePct: ref > 0 ? ((price - ref) / ref) * 100 : 0,
-            time: new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}),
-            source: 'SSI'
-          };
-        }
-      }
-    }
-  } catch(e) {}
-
-  // ── Fallback: Simulation dựa trên giá lệnh đặt ──
-  const prev = priceCache[sym];
-  // Dùng giá lệnh đặt gần nhất làm ref (đã nhân 1000 khi import Excel nếu cần)
-  const orderPrices = (localData.orders || [])
-    .filter(o => o.symbol === sym && o.orderPrice > 0)
-    .map(o => o.orderPrice);
-  const baseRef = prev?.price
-    || (orderPrices.length ? Math.max(...orderPrices) : null);
-
-  if (!baseRef) return { price: null, change: 0, changePct: 0, simulated: true, source: 'SIM' };
-
-  const drift = (Math.random() - 0.5) * 0.025; // ±1.25%
-  const price = Math.round(baseRef * (1 + drift) / 100) * 100;
-  return {
-    price, ref: baseRef, open: baseRef,
-    volume: Math.round(Math.random() * 2000000),
-    change: price - baseRef,
-    changePct: drift * 100,
-    time: new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}),
-    simulated: true, source: 'SIM'
-  };
+  }
+  // Fallback: dùng avgCost từ portfolio
+  const pos  = (localData.portfolio || []).find(p => p.symbol === symbol);
+  const base = priceCache[symbol]?.price || pos?.avgCost || null;
+  if (!base) return { price: null, change: 0, changePct: 0, source: 'SIM', simulated: true };
+  const drift = (Math.random() - 0.5) * 0.02;
+  const price = Math.round(base * (1 + drift) / 100) * 100;
+  return { price, ref: base, change: price-base, changePct: drift*100, volume: 0,
+           time: new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}),
+           source: 'SIM', simulated: true };
 }
 
-// Helper: lấy giá đóng cửa phiên trước từ TCBS để tính % chính xác
-async function fetchTCBSRefPrice(sym) {
-  try {
-    const toTs = Math.floor(Date.now() / 1000);
-    const frTs = toTs - 3 * 86400;
-    const res = await fetch(
-      `https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=${sym}&type=stock&resolution=D&from=${frTs}&to=${toTs}`,
-      {
-        headers: { 'Referer': 'https://tcinvest.tcbs.com.vn/', 'Origin': 'https://tcinvest.tcbs.com.vn' },
-        signal: AbortSignal.timeout(4000)
-      }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      const bars = json?.data || [];
-      if (bars.length >= 2) return (bars[bars.length - 2].close || bars[bars.length - 2].c) * 1000;
-    }
-  } catch(e) {}
-  return null;
-}
+async function fetchTCBSRefPrice(sym) { return null; } // not needed with proxy
 
 async function fetchIndexPrice(index) {
-  // ── Thử VNDirect cho index ──
-  try {
-    const vndMap = { VNINDEX: 'VNI', HNX: 'HNX', UPCOM: 'UPCOM' };
-    const res = await fetch(
-      `https://price.vndirect.com.vn/trading/latest_index?symbols=${vndMap[index]||index}`,
-      { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      const arr = Array.isArray(json) ? json : (json.data || []);
-      const d = arr[0];
-      if (d) {
-        const price = d.indexValue || d.value || d.close;
-        const ref   = d.priorCloseIndex || d.prevClose || price;
-        if (price > 0) return { price, change: price-ref, changePct: ref > 0 ? ((price-ref)/ref)*100 : 0, source:'VND' };
-      }
-    }
-  } catch(e) {}
-
-  // ── Thử TCBS index ──
-  try {
-    const tcbsCode = { VNINDEX: 'VNINDEX', HNX: 'HNXINDEX', UPCOM: 'UPCOMINDEX' };
-    const toTs = Math.floor(Date.now() / 1000);
-    const frTs = toTs - 3 * 86400;
-    const res = await fetch(
-      `https://apipubaws.tcbs.com.vn/stock-insight/v1/index/historical-hose-index?resolution=D&from=${frTs}&to=${toTs}&code=${tcbsCode[index]||index}`,
-      {
-        headers: { 'Referer': 'https://tcinvest.tcbs.com.vn/', 'Origin': 'https://tcinvest.tcbs.com.vn' },
-        signal: AbortSignal.timeout(6000)
-      }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      const bars = json?.data || [];
-      if (bars.length >= 1) {
-        const d    = bars[bars.length - 1];
-        const prev = bars.length >= 2 ? bars[bars.length - 2] : null;
-        const price = d.closeIndex || d.close || d.c;
-        const ref   = prev ? (prev.closeIndex || prev.close || prev.c) : (d.openIndex || d.open || price);
-        if (price > 0) return { price, change: price-ref, changePct: ref > 0 ? ((price-ref)/ref)*100 : 0, source:'TCBS' };
-      }
-    }
-  } catch(e) {}
-
-  // ── Fallback static ──
-  const bases = { VNINDEX: 1230, HNX: 225, UPCOM: 92 };
-  const base = bases[index] || 100;
-  const chg = (Math.random() - 0.5) * 0.008 * base;
-  return { price: base + chg, change: chg, changePct: (chg/base)*100, simulated: true };
+  if (config.gsUrl) {
+    const data = await gsGetIndex();
+    const d    = data[index];
+    if (d && d.price > 0) return d;
+  }
+  const bases = { VNINDEX:1230, HNX:225, UPCOM:92 };
+  const base  = bases[index] || 100;
+  const chg   = (Math.random()-0.5)*0.008*base;
+  return { price:base+chg, change:chg, changePct:(chg/base)*100, simulated:true };
 }
+
 
 async function refreshAllPrices() {
   const icon = $('refreshIcon');
   icon.classList.add('spinning');
   setSyncStatus('syncing', 'Đang cập nhật giá...');
 
-  // Fetch indices
-  for (const idx of ['VNINDEX','HNX','UPCOM']) {
-    const d = await fetchIndexPrice(idx);
-    const priceEl = $(`tick-${idx}`);
-    const chgEl = $(`tick-${idx}-chg`);
-    if (priceEl) priceEl.textContent = d.price ? fmt(d.price, 2) : '--';
-    if (chgEl) {
-      chgEl.textContent = fmtPct(d.changePct);
-      chgEl.className = 'ticker-change ' + (d.changePct >= 0 ? 'pos' : 'neg');
-    }
-  }
-
-  // Collect all unique symbols from watchlist + portfolio + orders
+  // Collect all unique symbols
   const symbolSet = new Set();
   (localData.watchlist || []).forEach(i => i.symbol && symbolSet.add(i.symbol));
   (localData.portfolio || []).forEach(p => p.symbol && symbolSet.add(p.symbol));
-  (localData.orders || []).forEach(o => o.symbol && symbolSet.add(o.symbol));
+  (localData.orders    || []).forEach(o => o.symbol && symbolSet.add(o.symbol));
+  const symbols = [...symbolSet];
 
-  for (const sym of symbolSet) {
-    const d = await fetchPrice(sym);
-    if (d && d.price) {
-      priceCache[sym] = d;
-      // Check alerts for watchlist items
-      const wlItem = (localData.watchlist || []).find(i => i.symbol === sym);
-      if (wlItem) checkAlerts(wlItem, d);
+  if (config.gsUrl && symbols.length > 0) {
+    // ── Batch fetch tất cả qua GAS proxy (1 request duy nhất) ──
+    setSyncStatus('syncing', `Đang lấy giá ${symbols.length} mã...`);
+
+    // Fetch indices và stocks song song
+    const [indexData, priceData] = await Promise.all([
+      gsGetIndex(),
+      gsGetPrice(symbols)
+    ]);
+
+    // Cập nhật indices
+    const idxMap = { VNINDEX:'VNINDEX', HNX:'HNX', UPCOM:'UPCOM' };
+    for (const [key, idx] of Object.entries(idxMap)) {
+      const d = indexData[key];
+      const priceEl = $(`tick-${key}`);
+      const chgEl   = $(`tick-${key}-chg`);
+      if (priceEl) priceEl.textContent = d?.price ? fmt(d.price, 2) : '--';
+      if (chgEl && d) {
+        chgEl.textContent  = fmtPct(d.changePct || 0);
+        chgEl.className    = 'ticker-change ' + ((d.changePct||0) >= 0 ? 'pos' : 'neg');
+      }
     }
+
+    // Cập nhật giá cổ phiếu
+    for (const sym of symbols) {
+      const d = priceData[sym];
+      if (d && d.price > 0) {
+        priceCache[sym] = {
+          price:     d.price,
+          ref:       d.ref || d.price,
+          change:    d.price - (d.ref || d.price),
+          changePct: d.changePct || 0,
+          volume:    d.volume || 0,
+          time:      new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}),
+          source:    d.source || 'GAS'
+        };
+        const wlItem = (localData.watchlist||[]).find(i => i.symbol === sym);
+        if (wlItem) checkAlerts(wlItem, priceCache[sym]);
+      }
+    }
+
+    const gotPrices = Object.keys(priceData).length;
+    $('lastUpdate').textContent = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} [GAS - ${gotPrices}/${symbols.length} mã]`;
+    setSyncStatus('ok', `Google Sheets ✓ | ${gotPrices} giá live`);
+
+  } else {
+    // Không có GS → simulation cho tất cả
+    for (const idx of ['VNINDEX','HNX','UPCOM']) {
+      const d       = await fetchIndexPrice(idx);
+      const priceEl = $(`tick-${idx}`);
+      const chgEl   = $(`tick-${idx}-chg`);
+      if (priceEl) priceEl.textContent = d.price ? fmt(d.price, 2) : '--';
+      if (chgEl) {
+        chgEl.textContent = fmtPct(d.changePct || 0);
+        chgEl.className   = 'ticker-change ' + ((d.changePct||0) >= 0 ? 'pos' : 'neg');
+      }
+    }
+    for (const sym of symbols) {
+      const d = await fetchPrice(sym);
+      if (d?.price) { priceCache[sym] = d; }
+    }
+    $('lastUpdate').textContent = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} [Simulation - chưa có GS]`;
+    setSyncStatus('error', '⚠ Chưa cài GS → giá Simulation');
   }
 
-  const srcList = [...new Set(Object.values(priceCache).map(p => p.source).filter(Boolean))];
-  $('lastUpdate').textContent = 'Cập nhật: ' + new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) + (srcList.length ? ' ['+srcList.join('/')+']' : '');
   icon.classList.remove('spinning');
-  setSyncStatus('ok', config.gsUrl ? 'Google Sheets ✓' : 'Lưu local');
-
-  // Check pending orders
   checkPendingOrders();
-  // Re-render current page
   renderCurrentPage();
 }
 
@@ -1904,11 +2004,14 @@ function addAlert(data) {
 function updateAlertBadge() {
   const unread = (localData.alerts||[]).filter(a => !a.read).length;
   const badge = $('alertBadge');
-  if (unread > 0) { badge.style.display='inline'; badge.textContent=unread; } else badge.style.display='none';
-  $('alertsToday').textContent = (localData.alerts||[]).filter(a => !a.read && a.time && a.time.startsWith(today())).length;
+  if (badge) { if (unread > 0) { badge.style.display='inline'; badge.textContent=unread; } else badge.style.display='none'; }
+  const alertsTodayEl = $('alertsToday');
+  if (alertsTodayEl) alertsTodayEl.textContent = (localData.alerts||[]).filter(a => !a.read && a.time && a.time.startsWith(today())).length;
   const dot = $('notifDot');
   if (dot) dot.style.display = unread > 0 ? 'block' : 'none';
 }
+// Alias
+const updateBadges = updateAlertBadge;
 
 // ─── PENDING ORDERS ──────────────────────────────────────────
 function checkPendingOrders() {
@@ -1990,54 +2093,54 @@ function renderCurrentPage() {
 // ─── RENDER DASHBOARD ────────────────────────────────────────
 function renderDashboard() {
   const watchlist = localData.watchlist || [];
-  const portfolio = localData.portfolio || [];
   const tbody = $('dashboardTableBody');
+
   if (watchlist.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có mã nào trong danh mục. Thêm mã ở "Danh mục quan tâm".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Chưa có mã nào. Thêm mã ở "Danh mục quan tâm".</td></tr>';
   } else {
     tbody.innerHTML = watchlist.map(item => {
       const p = priceCache[item.symbol] || {};
-      const price = p.price;
-      const chg = p.change;
-      const chgPct = p.changePct;
-      const cls = chgPct >= 0 ? 'pos' : 'neg';
-      const hasAlert = (item.alertUpper > 0 && chgPct >= item.alertUpper) || (item.alertLower > 0 && chgPct <= -item.alertLower);
+      const price = p.price, chg = p.change, chgPct = p.changePct;
+      const hasPrice = price && price > 0;
+      const cls = (chgPct||0) >= 0 ? 'pos' : 'neg';
+      const hasAlert = hasPrice && ((item.alertUpper > 0 && chgPct >= item.alertUpper) || (item.alertLower > 0 && chgPct <= -item.alertLower));
       const srcBadge = p.source === 'SIM'
-        ? '<span style="color:var(--text-muted);font-size:0.7rem">~ Sim</span>'
-        : p.source
-          ? `<span style="color:var(--neon-green);font-size:0.7rem">✓ ${p.source}</span>`
-          : (hasAlert ? '<span style="color:var(--neon-orange)">⚠</span>' : '--');
+        ? '<span style="color:var(--text-muted);font-size:.7rem">~Sim</span>'
+        : p.source ? `<span style="color:var(--neon-green);font-size:.7rem">✓${p.source}</span>`
+        : (hasAlert ? '<span style="color:var(--neon-orange)">⚠</span>' : '--');
       return `<tr>
-        <td><span class="symbol-badge">${item.symbol}</span></td>
-        <td style="font-weight:600">${price ? fmt(price) : '<span style="color:var(--text-muted)">--</span>'}</td>
-        <td class="${cls}">${chg != null && price ? (chg>=0?'+':'')+fmt(chg) : '--'}</td>
-        <td class="${cls}">${chgPct != null && price ? fmtPct(chgPct) : '--'}</td>
-        <td class="neutral">${p.volume ? (p.volume > 1e6 ? fmt(Math.round(p.volume/1e6),1)+'M' : fmt(p.volume)) : '--'}</td>
+        <td><span class="symbol-badge">${item.symbol}</span>${item.name?`<div style="font-size:.65rem;color:var(--text-muted)">${item.name}</div>`:''}</td>
+        <td style="font-weight:600">${hasPrice?fmt(price,0):'<span style="color:var(--text-muted)">--</span>'}</td>
+        <td class="${cls}">${hasPrice&&chg!=null?(chg>=0?'+':'')+fmt(chg,0):'--'}</td>
+        <td class="${cls}">${hasPrice&&chgPct!=null?fmtPct(chgPct):'--'}</td>
+        <td class="neutral">${p.volume?(p.volume>1e6?fmt(Math.round(p.volume/1e6),1)+'M':fmt(p.volume)):'--'}</td>
         <td>${srcBadge}</td>
       </tr>`;
     }).join('');
   }
 
-  // Portfolio summary
-  let totalCost = 0, totalMV = 0;
-  portfolio.forEach(pos => {
-    const price = priceCache[pos.symbol]?.price || pos.avgCost;
-    totalCost += (pos.avgCost || 0) * (pos.quantity || 0);
-    totalMV += price * (pos.quantity || 0);
-  });
-  const unrealized = totalMV - totalCost;
-  const unrealizedPct = totalCost > 0 ? (unrealized/totalCost)*100 : 0;
-  $('portfolioValue').textContent = fmtMoney(totalMV || null);
+  // Use centralized stats (correct, includes histTrades)
+  const stats = calcPortfolioStats();
+  $('portfolioValue').textContent = fmtMoney(stats.totalMV || null);
   const pnlEl = $('portfolioPnL');
-  pnlEl.textContent = totalCost > 0 ? fmtPct(unrealizedPct) : '--';
-  pnlEl.className = 'card-sub ' + (unrealized >= 0 ? 'pos' : 'neg');
+  if (pnlEl) {
+    const pct = stats.totalCost > 0 ? (stats.unrealized / stats.totalCost) * 100 : null;
+    pnlEl.textContent = pct != null ? fmtPct(pct) : '--';
+    pnlEl.className = 'card-sub ' + (stats.unrealized >= 0 ? 'pos' : 'neg');
+  }
   $('watchlistCount').textContent = watchlist.length;
+
+  // Also update todayPnL if element exists
+  const tPnl = $('todayPnL');
+  if (tPnl) { tPnl.textContent = fmtMoney(stats.realizedPnl || null); tPnl.className = 'card-value ' + (stats.realizedPnl >= 0 ? 'pos' : 'neg'); }
 
   // Chart symbol select
   const sel = $('chartSymbolSelect');
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">-- Chọn mã --</option>' + watchlist.map(i => `<option value="${i.symbol}">${i.symbol}</option>`).join('');
-  if (prev && watchlist.find(i => i.symbol === prev)) sel.value = prev;
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">-- Chọn mã --</option>' + watchlist.map(i => `<option value="${i.symbol}">${i.symbol}${i.name?' - '+i.name.slice(0,14):''}</option>`).join('');
+    if (prev && watchlist.find(i => i.symbol === prev)) sel.value = prev;
+  }
 }
 
 // ─── RENDER WATCHLIST ─────────────────────────────────────────
@@ -2069,45 +2172,48 @@ function renderWatchlist(filter='') {
 
 // ─── RENDER PORTFOLIO ─────────────────────────────────────────
 function renderPortfolio() {
+  // Use centralized stats (includes histTrades realized PnL)
+  const stats = calcPortfolioStats();
   const portfolio = localData.portfolio || [];
-  const orders = localData.orders || [];
   const tbody = $('portfolioTableBody');
 
-  let totalCost = 0, totalMV = 0;
-  // Lãi/lỗ đã thực hiện: tổng PnL từ lệnh bán đã khớp
-  const realizedPnl = orders
-    .filter(o => o.type === 'sell' && o.status === 'filled' && o.pnl != null)
-    .reduce((s, o) => s + (Number(o.pnl) || 0), 0);
+  // Update summary cards
+  $('ptTotalCost').textContent      = fmtMoney(stats.totalCost || null);
+  $('ptMarketValue').textContent    = fmtMoney(stats.totalMV   || null);
+  const unr = stats.unrealized;
+  const unrPct = stats.totalCost > 0 ? (unr / stats.totalCost) * 100 : 0;
+  $('ptUnrealizedPnL').textContent  = fmtMoney(unr || null);
+  $('ptUnrealizedPct').textContent  = stats.totalCost > 0 ? fmtPct(unrPct) : '--';
+  $('ptUnrealizedPnL').className    = 'card-value ' + (unr >= 0 ? 'pos' : 'neg');
+  $('ptRealizedPnL').textContent    = fmtMoney(stats.realizedPnl || null);
+  $('ptRealizedPnL').className      = 'card-value ' + (stats.realizedPnl >= 0 ? 'pos' : 'neg');
+  $('pnlIcon').className            = 'card-icon ' + (unr >= 0 ? 'green' : 'red');
 
-  if (portfolio.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Chưa có vị thế nào.</td></tr>';
+  // Positions table
+  if (!portfolio.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Chưa có vị thế nào. Thêm lệnh mua hoặc nhập vị thế.</td></tr>';
   } else {
     tbody.innerHTML = portfolio.map(pos => {
-      const p = priceCache[pos.symbol] || {};
-      const marketPrice = p.price || pos.avgCost; // giá thị trường hiện tại
-      const avgCost = Number(pos.avgCost) || 0;   // giá vốn trung bình
-      const qty = Number(pos.quantity) || 0;
-      const mv   = marketPrice * qty;              // giá trị thị trường
-      const cost = avgCost * qty;                  // giá vốn tổng
-      const pnl  = mv - cost;                      // lãi/lỗ tuyệt đối (VND)
-      const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0; // % lãi/lỗ so vốn
-      totalCost += cost;
-      totalMV   += mv;
-      const cls = pnl >= 0 ? 'pos' : 'neg';
-      const name = pos.name || (localData.watchlist||[]).find(w => w.symbol === pos.symbol)?.name || '';
-      const srcTag = p.source && p.source !== 'SIM'
-        ? `<span style="font-size:0.65rem;color:var(--neon-green)"> ✓${p.source}</span>` : '';
+      const p         = priceCache[pos.symbol] || {};
+      const avgCost   = Number(pos.avgCost) || 0;
+      const qty       = Number(pos.quantity) || 0;
+      const hasPrice  = p.price && p.price > 0;
+      const mktPrice  = hasPrice ? p.price : avgCost;
+      const mv        = mktPrice * qty;
+      const cost      = avgCost  * qty;
+      const pnl       = hasPrice ? mv - cost : null;
+      const pnlPct    = (hasPrice && avgCost > 0) ? ((mktPrice - avgCost) / avgCost) * 100 : null;
+      const cls       = (pnl||0) >= 0 ? 'pos' : 'neg';
+      const name      = pos.name || (localData.watchlist||[]).find(w=>w.symbol===pos.symbol)?.name || '';
+      const srcTag    = (p.source && p.source!=='SIM') ? `<span style="font-size:.65rem;color:var(--neon-green)"> ✓${p.source}</span>` : '';
       return `<tr>
-        <td>
-          <span class="symbol-badge">${pos.symbol}</span>
-          ${name ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px">${name}</div>` : ''}
-        </td>
+        <td><span class="symbol-badge">${pos.symbol}</span>${name?`<div style="font-size:.68rem;color:var(--text-muted)">${name}</div>`:''}</td>
         <td style="font-weight:600">${fmt(qty)}</td>
-        <td>${fmt(avgCost, 2)}</td>
-        <td>${fmt(marketPrice, 0)}${srcTag}</td>
-        <td>${fmtMoney(mv)}</td>
-        <td class="${cls}" style="font-weight:700">${fmtMoney(pnl)}</td>
-        <td class="${cls}" style="font-weight:700">${fmtPct(pnlPct)}</td>
+        <td>${fmt(avgCost,2)}</td>
+        <td>${hasPrice?`${fmt(mktPrice,0)}${srcTag}`:'<span style="color:var(--text-muted)">--</span>'}</td>
+        <td>${pnl!=null?fmtMoney(mv):'--'}</td>
+        <td class="${pnl!=null?cls:'neutral'}" style="font-weight:700">${pnl!=null?fmtMoney(pnl):'--'}</td>
+        <td class="${pnlPct!=null?cls:'neutral'}" style="font-weight:700">${pnlPct!=null?fmtPct(pnlPct):'--'}</td>
         <td>
           <button class="btn btn-sm btn-secondary" onclick="editPosition('${pos.id}')"><i class="fas fa-edit"></i></button>
           <button class="btn btn-sm btn-outline-danger" onclick="deletePosition('${pos.id}')"><i class="fas fa-trash"></i></button>
@@ -2116,67 +2222,112 @@ function renderPortfolio() {
     }).join('');
   }
 
-  const unrealized = totalMV - totalCost;
-  const unrealizedPct = totalCost > 0 ? (unrealized / totalCost) * 100 : 0;
-  $('ptTotalCost').textContent = fmtMoney(totalCost || null);
-  $('ptMarketValue').textContent = fmtMoney(totalMV || null);
-  $('ptUnrealizedPnL').textContent = fmtMoney(unrealized || null);
-  $('ptUnrealizedPct').textContent = totalCost > 0 ? fmtPct(unrealizedPct) : '--';
-  $('ptUnrealizedPnL').className = 'card-value ' + (unrealized >= 0 ? 'pos' : 'neg');
-  $('ptRealizedPnL').textContent = fmtMoney(realizedPnl || null);
-  $('pnlIcon').className = 'card-icon ' + (unrealized >= 0 ? 'green' : 'red');
-
   if (portfolio.length > 0) drawPortfolioChart(portfolio);
+
+  // HistTrades table (completed trades)
+  const histTrades = localData.histTrades || [];
+  const htCard = $('histTradeCard');
+  if (htCard) {
+    if (!histTrades.length) { htCard.style.display='none'; return; }
+    htCard.style.display='';
+    let totalHL=0;
+    const htTbody = $('tbHistTrades');
+    if (htTbody) {
+      htTbody.innerHTML = histTrades.map(ht=>{
+        const qty=Number(ht.quantity||0), bp=Number(ht.buyPrice||0), sp=Number(ht.sellPrice||0), fee=Number(ht.fee||0);
+        const pnl=(sp-bp)*qty-fee, pct=bp>0?(sp-bp)/bp*100:0;
+        totalHL+=pnl;
+        const cls=pnl>=0?'pos':'neg';
+        return `<tr>
+          <td><span class="symbol-badge">${ht.symbol}</span></td>
+          <td>${fmt(qty)}</td><td>${fmt(bp,0)}</td><td>${fmt(sp,0)}</td>
+          <td class="${cls}" style="font-weight:700">${fmtMoney(pnl)}</td>
+          <td class="${cls}">${fmtPct(pct)}</td>
+          <td style="color:var(--text-muted)">${(ht.date||'').slice(0,10)}</td>
+          <td>
+            <button class="btn btn-sm btn-secondary" onclick="editHistTrade('${ht.id}')"><i class="fas fa-edit"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="delHistTrade('${ht.id}')"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    const sumEl=$('histTradeSummary');
+    if(sumEl){sumEl.textContent=`${histTrades.length} GD | Tổng L/L: ${fmtMoney(totalHL)}`;sumEl.className='card-sub '+(totalHL>=0?'pos':'neg');}
+  }
 }
 
 // ─── RENDER ORDERS ────────────────────────────────────────────
 function renderOrders() {
   const filter = $('orderFilter').value || 'all';
-  let orders = (localData.orders || []).slice().reverse();
+  let orders = [...(localData.orders || [])].sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
   if (filter !== 'all') orders = orders.filter(o => o.status === filter);
   const tbody = $('ordersTableBody');
-  if (orders.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">Chưa có lệnh nào.</td></tr>`;
-    return;
-  }
-  const statusMap = {
-    pending:   '<span style="color:var(--neon-yellow)">⏳ Chờ khớp</span>',
-    filled:    '<span style="color:var(--neon-green)">✅ Đã khớp</span>',
-    cancelled: '<span style="color:var(--text-muted)">❌ Đã huỷ</span>'
-  };
+  if (!orders.length) { tbody.innerHTML = `<tr><td colspan="11" class="empty-state">Chưa có lệnh nào.</td></tr>`; return; }
+
   tbody.innerHTML = orders.map(o => {
+    const stMap = { pending:'<span style="color:var(--neon-yellow)">⏳ Chờ</span>', filled:'<span style="color:var(--neon-green)">✅ Khớp</span>', cancelled:'<span style="color:var(--text-muted)">❌ Huỷ</span>' };
     const typeClass = o.type === 'buy' ? 'pos' : 'neg';
-    const typeLabel = o.type === 'buy' ? '▲ MUA' : '▼ BÁN';
-    const pnl = o.pnl != null ? Number(o.pnl) : null;
-    const pnlClass = (pnl || 0) >= 0 ? 'pos' : 'neg';
-    const dt = o.time ? new Date(o.time).toLocaleString('vi-VN', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'}) : '--';
+    const dt = o.time ? new Date(o.time).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '--';
+    const name = (localData.watchlist||[]).find(w => w.symbol === o.symbol)?.name || '';
     const fillPrice = o.fillPrice || (o.status === 'filled' ? o.orderPrice : null);
-    // % lãi/lỗ so với giá vốn mua
+
+    // PnL: tính đúng từ avgBuyPrice (đã lưu) hoặc tính lại
+    const pnl = o.type === 'sell' && o.status === 'filled'
+      ? (o.pnl != null ? Number(o.pnl) : calcOrderPnl(o))
+      : null;
+    const pnlCls = (pnl||0) >= 0 ? 'pos' : 'neg';
+
+    // % lãi/lỗ: so với giá vốn TB
     let pnlPct = null;
-    if (pnl != null && o.type === 'sell' && fillPrice) {
-      const avgBuy = o.avgBuyPrice || o.orderPrice;
+    if (o.type === 'sell' && o.status === 'filled' && fillPrice) {
+      const avgBuy = Number(o.avgBuyPrice || 0) || calcAvgBuyPrice(o.symbol, o.id);
       if (avgBuy > 0) pnlPct = ((fillPrice - avgBuy) / avgBuy) * 100;
     }
-    const name = (localData.watchlist || []).find(w => w.symbol === o.symbol)?.name || '';
+
+    // KL đang có (từ positions hiện tại)
+    const curQty = (localData.portfolio||[]).find(p => p.symbol === o.symbol)?.quantity || 0;
+
     return `<tr>
-      <td style="color:var(--text-muted);font-size:0.72rem">${dt}</td>
-      <td>
-        <span class="symbol-badge">${o.symbol}</span>
-        ${name ? `<div style="font-size:0.65rem;color:var(--text-muted)">${name}</div>` : ''}
-      </td>
-      <td class="${typeClass}" style="font-weight:700">${typeLabel}</td>
-      <td>${fmt(o.orderPrice, 0)}</td>
+      <td style="color:var(--text-muted);font-size:.72rem">${dt}</td>
+      <td><span class="symbol-badge">${o.symbol}</span>${name?`<div style="font-size:.65rem;color:var(--text-muted)">${name}</div>`:''}</td>
+      <td class="${typeClass}" style="font-weight:700">${o.type==='buy'?'▲MUA':'▼BÁN'}</td>
+      <td>${fmt(o.orderPrice,0)}</td>
       <td>${fmt(o.quantity)}</td>
-      <td>${fillPrice ? fmt(fillPrice, 0) : '<span style="color:var(--text-muted)">--</span>'}</td>
-      <td>${statusMap[o.status] || o.status}</td>
-      <td class="${pnlClass}" style="font-weight:600">${pnl != null ? fmtMoney(pnl) : '--'}</td>
-      <td class="${pnlClass}">${pnlPct != null ? fmtPct(pnlPct) : '--'}</td>
-      <td>
-        ${o.status === 'pending' ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelOrder('${o.id}')"><i class="fas fa-times"></i></button>` : ''}
-        <button class="btn btn-sm btn-secondary" onclick="deleteOrderItem('${o.id}')"><i class="fas fa-trash"></i></button>
+      <td style="color:var(--accent-blue);font-weight:600">${curQty>0?fmt(curQty):'<span style="color:var(--text-muted)">0</span>'}</td>
+      <td>${fillPrice?fmt(fillPrice,0):'<span style="color:var(--text-muted)">--</span>'}</td>
+      <td>${stMap[o.status]||o.status}</td>
+      <td class="${pnlCls}" style="font-weight:600">${pnl!=null?fmtMoney(pnl):'--'}</td>
+      <td class="${pnlCls}">${pnlPct!=null?fmtPct(pnlPct):'--'}</td>
+      <td style="display:flex;gap:4px;flex-wrap:nowrap">
+        <button class="btn btn-sm btn-secondary" onclick="editOrderModal('${o.id}')" title="Sửa lệnh"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteOrderItem('${o.id}')" title="Xoá"><i class="fas fa-trash"></i></button>
       </td>
     </tr>`;
   }).join('');
+}
+
+// Edit order — open modal pre-filled
+function editOrderModal(id) {
+  const o = (localData.orders||[]).find(x=>x.id===id);
+  if (!o) return;
+  $('orderModalTitle').textContent = (o.type==='buy'?'▲ Sửa lệnh Mua':'▼ Sửa lệnh Bán');
+  $('order-id').value   = o.id;
+  $('orderType').value  = o.type;
+  $('order-symbol').value   = o.symbol||'';
+  $('order-price').value    = o.orderPrice||'';
+  $('order-quantity').value = o.quantity||'';
+  // Status
+  const stEl = $('order-status-select');
+  if (stEl) stEl.value = o.status||'pending';
+  // Fill now toggle
+  if ($('order-fill-now')) $('order-fill-now').checked = o.status==='filled';
+  if ($('fill-now-text')) $('fill-now-text').textContent = o.status==='filled'?'Có (đã khớp)':'Không (chờ khớp)';
+  $('order-note').value = o.note||'';
+  updateOrderSummary();
+  // Show "Đặt lại" button for filled orders
+  const reBtn = $('btnReorderOrder');
+  if (reBtn) reBtn.style.display = o.status==='filled'?'inline-flex':'none';
+  openModal('orderModal');
 }
 
 // ─── RENDER ALERTS ────────────────────────────────────────────
@@ -2254,66 +2405,13 @@ const chartDefaults = {
 
 // Fetch lịch sử giá từ TCBS (daily bars) — trả về [{date, open, high, low, close, volume}]
 async function fetchHistoricalPrices(symbol, days = 365) {
-  const sym = symbol.toUpperCase().trim();
-  const toTs = Math.floor(Date.now() / 1000);
-  const frTs = toTs - (days + 5) * 86400;
-
-  // ── TCBS daily bars ──
-  try {
-    const res = await fetch(
-      `https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=${sym}&type=stock&resolution=D&from=${frTs}&to=${toTs}`,
-      {
-        headers: { 'Referer': 'https://tcinvest.tcbs.com.vn/', 'Origin': 'https://tcinvest.tcbs.com.vn' },
-        signal: AbortSignal.timeout(10000)
-      }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      const bars = json?.data || [];
-      if (bars.length > 5) {
-        return bars.map(b => ({
-          date:   b.tradingDate || new Date((b.time || 0) * 1000).toISOString().slice(0, 10),
-          open:   (b.open  || b.o || 0) * 1000,
-          high:   (b.high  || b.h || 0) * 1000,
-          low:    (b.low   || b.l || 0) * 1000,
-          close:  (b.close || b.c || 0) * 1000,
-          volume:  b.volume || b.v || 0
-        })).filter(b => b.close > 0).slice(-days);
-      }
-    }
-  } catch(e) {}
-
-  // ── VNDirect historical fallback ──
-  try {
-    const endDate = new Date().toISOString().slice(0, 10).replace(/-/g, '-');
-    const startDate = new Date(frTs * 1000).toISOString().slice(0, 10).replace(/-/g, '-');
-    const res = await fetch(
-      `https://finfo-api.vndirect.com.vn/v4/stock-prices?code=${sym}&startDate=${startDate}&endDate=${endDate}&size=${days+10}`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (res.ok) {
-      const json = await res.json();
-      const items = json?.data || [];
-      if (items.length > 0) {
-        return items.map(d => ({
-          date:   d.date,
-          open:   (d.open  || 0) * 1000,
-          high:   (d.high  || 0) * 1000,
-          low:    (d.low   || 0) * 1000,
-          close:  (d.close || 0) * 1000,
-          volume:  d.totalVolume || 0
-        })).filter(b => b.close > 0).reverse().slice(-days);
-      }
-    }
-  } catch(e) {}
-
-  // ── Fallback từ priceHistory local ──
-  const stored = (localData.priceHistory || {})[sym] || [];
-  if (stored.length > 0) return stored.slice(-days);
-
+  // Dùng GAS proxy nếu có
+  if (config.gsUrl) {
+    const bars = await gsGetHistory(symbol, days);
+    if (bars.length > 3) return bars;
+  }
   return [];
 }
-
 async function drawPriceChart(symbol) {
   if (!symbol) return;
   const canvas = $('priceChart');
@@ -2326,7 +2424,9 @@ async function drawPriceChart(symbol) {
 
   const bars = await fetchHistoricalPrices(symbol, days);
   if (bars.length === 0) {
-    if (legendEl) legendEl.innerHTML = '<span style="color:var(--text-muted)">Không có dữ liệu lịch sử giá</span>';
+    if (legendEl) legendEl.innerHTML = config.gsUrl
+      ? '<span style="color:var(--neon-orange)">⚠ GAS chưa trả dữ liệu lịch sử. Đảm bảo đã deploy Apps Script v4.</span>'
+      : '<span style="color:var(--text-muted)">⚠ Cần cài đặt Google Apps Script để xem biểu đồ lịch sử giá. Vào Cài đặt → Google Sheets.</span>';
     return;
   }
 
@@ -2341,8 +2441,10 @@ async function drawPriceChart(symbol) {
   }
 
   const labels = bars.map(b => {
-    const d = b.date?.slice(5) || ''; // MM-DD
-    return d.replace('-', '/');
+    // b.date luôn là 'YYYY-MM-DD' sau khi đã parse trong fetchHistoricalPrices
+    const d = (b.date || '').slice(0, 10); // đảm bảo chỉ lấy 10 ký tự
+    const parts = d.split('-');            // ['2024','04','08']
+    return parts.length === 3 ? `${parts[1]}/${parts[2]}` : d.slice(5);
   });
   const closePrices = bars.map(b => b.close);
 
@@ -2477,8 +2579,10 @@ function drawPortfolioChart(portfolio) {
   if (!canvas) return;
   if (portfolioChart) portfolioChart.destroy();
 
-  const colors = ['#00d4ff','#00ff88','#bf5fff','#ff8c00','#ff3355','#ffe033','#4a9eff','#ff6eb4','#00e5cc','#ffb347'];
-  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const colors  = ['#00d4ff','#00ff88','#bf5fff','#ff8c00','#ff3355','#ffe033','#4a9eff','#ff6eb4','#00e5cc','#ffb347'];
+  const isDark  = document.documentElement.getAttribute('data-theme') !== 'light';
+  const txtColor = isDark ? '#d0d8f0' : '#1a202c'; // legible in both themes
+  const bgBorder = isDark ? '#111720' : '#ffffff';
 
   // Tính giá trị thị trường cho từng vị thế
   const items = portfolio.map((p, i) => {
@@ -2488,54 +2592,48 @@ function drawPortfolioChart(portfolio) {
     return { symbol: p.symbol, name, mv, color: colors[i % colors.length] };
   }).filter(x => x.mv > 0);
 
+  if (items.length === 0) return;
   const total = items.reduce((s, x) => s + x.mv, 0);
-
-  // Label = "SYM\nTên\nX.X%" — chỉ hiển thị trên slice đủ lớn (>5%)
-  const labels = items.map(x => {
-    const pct = total > 0 ? (x.mv / total * 100) : 0;
-    const shortName = x.name.length > 12 ? x.name.slice(0, 12) + '…' : x.name;
-    return pct >= 5 ? `${x.symbol} ${pct.toFixed(1)}%` : x.symbol;
-  });
 
   portfolioChart = new Chart(canvas, {
     type: 'doughnut',
     data: {
-      labels,
+      labels: items.map(x => x.symbol),
       datasets: [{
-        data: items.map(x => x.mv),
+        data:            items.map(x => x.mv),
         backgroundColor: items.map(x => x.color),
-        borderColor: isDark ? '#111720' : '#ffffff',
-        borderWidth: 2,
-        hoverOffset: 8
+        borderColor:     bgBorder,
+        borderWidth:     2,
+        hoverOffset:     8
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: '52%',
+      cutout: '50%',
       plugins: {
         legend: {
           position: 'right',
           labels: {
-            color: isDark ? '#7f8fa6' : '#4a5568',
-            font: { family: 'JetBrains Mono', size: 11 },
-            boxWidth: 12,
-            padding: 8,
+            color:      txtColor,   // rõ ràng cả dark lẫn light
+            font:       { family: 'JetBrains Mono', size: 11 },
+            boxWidth:   12,
+            padding:    8,
             generateLabels: (chart) => {
-              const ds = chart.data.datasets[0];
+              const ds  = chart.data.datasets[0];
               const tot = ds.data.reduce((s, v) => s + v, 0);
-              return chart.data.labels.map((lbl, i) => {
-                const val = ds.data[i];
-                const pct = tot > 0 ? (val / tot * 100).toFixed(1) : 0;
-                const sym = items[i]?.symbol || lbl;
-                const nm  = items[i]?.name || '';
-                const shortNm = nm && nm !== sym ? ` ${nm.length > 10 ? nm.slice(0,10)+'…' : nm}` : '';
+              return items.map((item, i) => {
+                const pct = tot > 0 ? (item.mv / tot * 100).toFixed(1) : '0.0';
+                const nm  = item.name && item.name !== item.symbol
+                  ? (item.name.length > 12 ? item.name.slice(0, 12) + '…' : item.name)
+                  : '';
                 return {
-                  text: `${sym}${shortNm} — ${pct}%`,
-                  fillStyle: ds.backgroundColor[i],
-                  strokeStyle: ds.backgroundColor[i],
-                  lineWidth: 0,
-                  index: i
+                  text:        nm ? `${item.symbol} ${nm} ${pct}%` : `${item.symbol} ${pct}%`,
+                  fillStyle:   item.color,
+                  strokeStyle: item.color,
+                  lineWidth:   0,
+                  fontColor:   txtColor,
+                  index:       i
                 };
               });
             }
@@ -2544,45 +2642,44 @@ function drawPortfolioChart(portfolio) {
         tooltip: {
           callbacks: {
             label: (ctx) => {
-              const val = ctx.raw;
-              const pct = total > 0 ? (val / total * 100).toFixed(1) : 0;
-              const sym = items[ctx.dataIndex]?.symbol || '';
-              const nm  = items[ctx.dataIndex]?.name  || '';
+              const item = items[ctx.dataIndex];
+              const pct  = total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0;
               return [
-                ` ${sym}${nm ? ' – ' + nm : ''}`,
-                ` Giá trị: ${fmtMoney(val)}`,
+                ` ${item.symbol}${item.name && item.name !== item.symbol ? ' – ' + item.name : ''}`,
+                ` Giá trị: ${fmtMoney(ctx.raw)}`,
                 ` Tỷ trọng: ${pct}%`
               ];
             }
           }
-        },
-        // Plugin vẽ text % trực tiếp lên slice đủ lớn
-        datalabels: false
+        }
       }
     },
     plugins: [{
       id: 'sliceLabels',
       afterDraw(chart) {
         const { ctx, data } = chart;
+        const ds   = data.datasets[0];
         const meta = chart.getDatasetMeta(0);
-        const tot  = data.datasets[0].data.reduce((s, v) => s + v, 0);
+        const tot  = ds.data.reduce((s, v) => s + v, 0);
         ctx.save();
         meta.data.forEach((arc, i) => {
-          const val = data.datasets[0].data[i];
-          const pct = tot > 0 ? (val / tot * 100) : 0;
-          if (pct < 6) return; // quá nhỏ, bỏ qua
-          const sym  = items[i]?.symbol || '';
+          const pct = tot > 0 ? (ds.data[i] / tot * 100) : 0;
+          if (pct < 6) return;  // quá nhỏ → bỏ qua
+          const sym    = items[i]?.symbol || '';
           const pctStr = pct.toFixed(1) + '%';
-          const { x, y } = arc.tooltipPosition();
-          ctx.fillStyle = '#fff';
-          ctx.font = `bold 11px JetBrains Mono, monospace`;
-          ctx.textAlign = 'center';
+          const mid    = (arc.startAngle + arc.endAngle) / 2;
+          const r      = (arc.outerRadius + arc.innerRadius) / 2;
+          const x      = arc.x + Math.cos(mid) * r;
+          const y      = arc.y + Math.sin(mid) * r;
+          ctx.textAlign    = 'center';
           ctx.textBaseline = 'middle';
-          ctx.shadowColor = 'rgba(0,0,0,0.6)';
-          ctx.shadowBlur = 4;
-          // Hai dòng: mã + %
+          // Shadow for readability on any slice color
+          ctx.shadowColor  = 'rgba(0,0,0,0.75)';
+          ctx.shadowBlur   = 5;
+          ctx.fillStyle    = '#ffffff';
+          ctx.font = `bold 11px "JetBrains Mono", monospace`;
           ctx.fillText(sym,    x, y - 7);
-          ctx.font = `10px JetBrains Mono, monospace`;
+          ctx.font = `10px "JetBrains Mono", monospace`;
           ctx.fillText(pctStr, x, y + 7);
           ctx.shadowBlur = 0;
         });
@@ -2885,30 +2982,38 @@ document.addEventListener('DOMContentLoaded', () => {
   $('order-quantity').addEventListener('input', updateOrderSummary);
 
   $('saveOrderBtn').addEventListener('click', async () => {
-    const symbol = $('order-symbol').value.trim().toUpperCase();
+    const symbol     = $('order-symbol').value.trim().toUpperCase();
     const orderPrice = parseFloat($('order-price').value);
-    const quantity = parseInt($('order-quantity').value);
-    const orderType = $('order-type').value;
+    const quantity   = parseInt($('order-quantity').value);
+    const orderType  = $('order-type').value;
     if (!symbol || !orderPrice || !quantity) { toast('Điền đầy đủ thông tin', 'warning'); return; }
-    const fillNow = $('order-fill-now').checked;
+    const fillNow    = $('order-fill-now').checked;
     const currentPrice = priceCache[symbol]?.price || orderPrice;
-    const feeRate = orderType === 'buy' ? config.buyFee : (config.sellFee + config.sellTax);
-    const fees = orderPrice * quantity * feeRate / 100;
-    const record = {
+    const feeRate    = orderType === 'buy' ? config.buyFee : (config.sellFee + config.sellTax);
+    const fees       = orderPrice * quantity * feeRate / 100;
+    const existingId = $('order-id')?.value || null;
+    const record     = {
+      id:         existingId || undefined,
       symbol, type: orderType, orderPrice, quantity,
-      fillPrice: fillNow ? currentPrice : null,
-      status: fillNow ? 'filled' : 'pending',
-      fees, pnl: null, note: $('order-note').value.trim(), time: now()
+      fillPrice:  fillNow ? currentPrice : null,
+      status:     fillNow ? 'filled' : 'pending',
+      fees, pnl: null,
+      note:       $('order-note').value.trim(),
+      time:       now()
     };
     if (fillNow && orderType === 'sell') {
-      const buyOrders = (localData.orders||[]).filter(o => o.symbol===symbol && o.type==='buy' && o.status==='filled');
-      const avgBuy = buyOrders.length > 0 ? buyOrders.reduce((s,o) => s+o.orderPrice*o.quantity,0) / buyOrders.reduce((s,o) => s+o.quantity,0) : orderPrice;
-      record.pnl = (currentPrice - avgBuy) * quantity - fees;
+      record.avgBuyPrice = calcAvgBuyPrice(symbol, existingId);
+      record.pnl = calcOrderPnl(record);
     }
     await saveRecord('orders', record);
+    // Auto add to watchlist
+    await ensureInWatchlist(symbol);
+    // Rebuild positions from orders
+    rebuildPortfolioFromOrders();
     closeModal('orderModal');
-    toast(`Đã đặt lệnh ${orderType.toUpperCase()} ${symbol}`, 'success');
-    renderCurrentPage();
+    $('order-id') && ($('order-id').value = '');
+    toast(`Đã lưu lệnh ${orderType.toUpperCase()} ${symbol}`, 'success');
+    renderCurrentPage(); updateBadges();
   });
 
   // Alerts
@@ -3017,7 +3122,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sym) drawPriceChart(sym);
   });
 
-  // History order (giao dịch cũ)
+  // History order (giao dịch cũ) — từ Orders page
   $('addHistoryOrderBtn').addEventListener('click', () => {
     $('hist-symbol').value = ''; $('hist-price').value = '';
     $('hist-qty').value = ''; $('hist-fee').value = '';
@@ -3033,6 +3138,61 @@ document.addEventListener('DOMContentLoaded', () => {
     showHistTab(1);
     openModal('historyOrderModal');
   });
+
+  // Thêm GD cũ — từ Portfolio page (chia sẻ cùng modal)
+  $('addHistTradBtn')?.addEventListener('click', () => {
+    $('addHistoryOrderBtn').click();
+  });
+
+  // Import positions from Excel
+  $('impPosExcel')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      try {
+        const wb = XLSX.read(ev.target.result, {type:'array',cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {defval:'',raw:false});
+        let cnt = 0;
+        for (const r of rows) {
+          const keys = Object.keys(r);
+          const get = (...ks) => { for (const k of ks) { const v = r[k]??r[keys.find(rk=>rk.trim().toLowerCase()===k.toLowerCase())]; if(v!==undefined&&v!=='') return String(v).trim(); } return ''; };
+          const sym = get('Mã','Symbol','ma').toUpperCase(); if (!sym) continue;
+          let qty = parseInt(get('SL','KL','Số lượng','Quantity').replace(/[,\s]/g,''))||0;
+          let avg = parseFloat(get('Giá vốn','Giá vốn TB','avgCost','Giá').replace(/[,\s]/g,''))||0;
+          if (avg > 0 && avg < 10000) avg *= 1000; // nghìn đồng
+          if (!qty || !avg) continue;
+          const rec = {symbol:sym, quantity:qty, avgCost:avg, manualEntry:true, addedAt:now()};
+          await saveRecord('portfolio', rec);
+          await ensureInWatchlist(sym); cnt++;
+        }
+        toast(`Import ${cnt} vị thế thành công`, 'success');
+        renderCurrent();
+      } catch(err) { toast('Lỗi import: '+err.message, 'error'); }
+    };
+    reader.readAsArrayBuffer(file); e.target.value='';
+  });
+
+  // Edit / delete hist trades (called from inline onclick)
+  window.editHistTrade = function(id) {
+    const ht = (localData.histTrades||[]).find(x=>x.id===id); if (!ht) return;
+    $('hist-symbol').value = ht.symbol||''; $('hist-qty').value = ht.quantity||'';
+    $('hist-price').value = ht.sellPrice||''; // reuse price field as sell price
+    $('hist-avgbuy').value = ht.buyPrice||''; $('hist-fee').value = ht.fee||'';
+    $('hist-date').value = (ht.date||'').slice(0,10)||today(); $('hist-note').value = ht.note||'';
+    $('hist-type').value = 'sell';
+    updateHistOrderSummary();
+    // Store id for update
+    $('histEditId') && ($('histEditId').value = ht.id);
+    openModal('historyOrderModal');
+  };
+  window.delHistTrade = function(id) {
+    if (!confirm('Xoá giao dịch cũ này?')) return;
+    localData.histTrades = (localData.histTrades||[]).filter(r=>r.id!==id);
+    saveLocalData(); if (config.gsUrl) gsCall({action:'delete', sheet:'histTrades', id}, true);
+    renderCurrent(); toast('Đã xoá GD cũ', 'success');
+  };
+
   ['hist-price','hist-qty','hist-fee','hist-avgbuy','hist-type','hist-symbol'].forEach(id =>
     $(id)?.addEventListener('input', updateHistOrderSummary)
   );
@@ -3073,16 +3233,32 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ─── ORDER MODAL ─────────────────────────────────────────────
-function openOrderModal(type) {
+function openOrderModal(type, prefill={}) {
+  if($('order-id')) $('order-id').value = '';
   $('order-type').value = type;
   $('orderModalTitle').textContent = type === 'buy' ? '▲ Đặt lệnh MUA' : '▼ Đặt lệnh BÁN';
-  $('order-symbol').value = ''; $('order-price').value = '';
-  $('order-quantity').value = ''; $('order-fill-now').checked = false;
+  $('order-symbol').value   = prefill.symbol   || '';
+  $('order-price').value    = prefill.price    || '';
+  $('order-quantity').value = prefill.qty      || '';
+  $('order-fill-now').checked = false;
   $('fill-now-text').textContent = 'Không (chờ khớp)';
   $('order-note').value = ''; $('orderTotal').textContent = '--';
   $('orderFee').textContent = '--'; $('orderGrandTotal').textContent = '--';
+  const reBtn = $('btnReorderOrder');
+  if (reBtn) reBtn.style.display = 'none';
   openModal('orderModal');
 }
+
+// Add "Đặt lại" button handler
+document.addEventListener('click', e => {
+  if (e.target.closest('#btnReorderOrder')) {
+    const id = $('order-id')?.value;
+    const o = id ? (localData.orders||[]).find(x=>x.id===id) : null;
+    if (!o) return;
+    closeModal('orderModal');
+    setTimeout(() => openOrderModal(o.type, {symbol:o.symbol, price:o.orderPrice, qty:o.quantity}), 100);
+  }
+});
 
 function updateOrderSummary() {
   const price = parseFloat($('order-price').value)||0;
@@ -3101,7 +3277,7 @@ function updateOrderSummary() {
 async function syncFromGS() {
   setSyncStatus('syncing', 'Đang đồng bộ...');
   let ok = true;
-  for (const key of ['watchlist','portfolio','orders','alerts']) {
+  for (const key of ['watchlist','portfolio','orders','histTrades','alerts']) {
     const rows = await gsGetAll(key);
     if (rows !== null) localData[key] = rows;
     else ok = false;
@@ -3161,6 +3337,46 @@ function exportAll() {
   a.href = url; a.download = `vnstock-backup-${today()}.json`;
   a.click(); URL.revokeObjectURL(url);
   toast('Đã xuất dữ liệu JSON', 'success');
+}
+
+// ─── AUTO WATCHLIST ──────────────────────────────────────────
+async function ensureInWatchlist(symbol) {
+  if ((localData.watchlist||[]).find(w => w.symbol === symbol)) return;
+  const name = await fetchCompanyName(symbol);
+  const rec = { symbol, name, sector:'', alertUpper:config.defaultAlertUpper, alertLower:config.defaultAlertLower,
+    targetBuy:0, targetSell:0, note:'Auto từ lệnh', addedAt:now() };
+  await saveRecord('watchlist', rec);
+}
+
+// ─── PORTFOLIO STATS (correct calculation) ───────────────────
+function calcPortfolioStats() {
+  const portfolio = localData.portfolio || [];
+  const orders = [...(localData.orders||[])].sort((a,b)=>new Date(a.time||0)-new Date(b.time||0));
+  const histTrades = localData.histTrades || [];
+
+  // Unrealized: positions still held
+  let totalCost = 0, totalMV = 0;
+  portfolio.forEach(pos => {
+    const marketPrice = priceCache[pos.symbol]?.price || 0;
+    const avgC = Number(pos.avgCost) || 0;
+    const qty  = Number(pos.quantity) || 0;
+    totalCost += avgC * qty;
+    totalMV   += (marketPrice || avgC) * qty;
+  });
+
+  // Realized: from filled sell orders
+  let realizedPnl = 0;
+  orders.filter(o => o.type==='sell' && o.status==='filled').forEach(o => {
+    const p = calcOrderPnl(o);
+    if (p != null) realizedPnl += p;
+  });
+  // Also from histTrades (completed trades)
+  histTrades.forEach(ht => {
+    const qty = Number(ht.quantity||0), bp = Number(ht.buyPrice||0), sp = Number(ht.sellPrice||0), fee = Number(ht.fee||0);
+    if (qty>0 && bp>0 && sp>0) realizedPnl += (sp-bp)*qty - fee;
+  });
+
+  return { totalCost, totalMV, unrealized: totalMV-totalCost, realizedPnl };
 }
 
 // ─── PNL CALCULATION (ĐÚNG) ──────────────────────────────────
@@ -3422,7 +3638,7 @@ function importData(e) {
       if (imported.alerts) localData.alerts = imported.alerts;
       saveLocalData();
       if (config.gsUrl) {
-        for (const key of ['watchlist','portfolio','orders','alerts']) {
+        for (const key of ['watchlist','portfolio','orders','histTrades','alerts']) {
           if (localData[key]?.length) {
             await gsCall({ action: 'replaceAll', sheet: key, records: localData[key] });
           }
