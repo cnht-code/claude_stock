@@ -1872,15 +1872,101 @@ async function fetchIndexPrice(index) {
 
 async function refreshAllPrices() {
   const icon = $('refreshIcon');
-  icon.classList.add('spinning');
-  setSyncStatus('syncing', 'Đang cập nhật giá...');
+  if (icon) icon.classList.add('spinning');
 
-  // Collect all unique symbols
+  // Collect unique symbols
   const symbolSet = new Set();
   (localData.watchlist || []).forEach(i => i.symbol && symbolSet.add(i.symbol));
   (localData.portfolio || []).forEach(p => p.symbol && symbolSet.add(p.symbol));
   (localData.orders    || []).forEach(o => o.symbol && symbolSet.add(o.symbol));
   const symbols = [...symbolSet];
+
+  if (config.gsUrl) {
+    setSyncStatus('syncing', symbols.length > 0 ? `Đang lấy giá ${symbols.length} mã...` : 'Đang lấy chỉ số...');
+
+    try {
+      // Always fetch indices; only fetch prices if there are symbols
+      const fetches = [gsGetIndex()];
+      if (symbols.length > 0) fetches.push(gsGetPrice(symbols));
+      const results = await Promise.all(fetches);
+      const indexData = results[0] || {};
+      const priceData = symbols.length > 0 ? (results[1] || {}) : {};
+
+      // Update index tickers
+      const idxCfg = [
+        ['VNINDEX', 'tick-VNINDEX', 'tick-VNINDEX-chg'],
+        ['HNX',     'tick-HNX',    'tick-HNX-chg'],
+        ['UPCOM',   'tick-UPCOM',  'tick-UPCOM-chg']
+      ];
+      idxCfg.forEach(([key, pEl, cEl]) => {
+        const d = indexData[key];
+        const pe = $(pEl), ce = $(cEl);
+        if (pe) pe.textContent = d?.price ? fmt(d.price, 2) : '--';
+        if (ce) {
+          ce.textContent = d?.changePct != null ? fmtPct(d.changePct) : '--';
+          ce.className = 'ticker-change ' + ((d?.changePct||0) >= 0 ? 'up' : 'down');
+        }
+      });
+
+      // Update stock prices
+      symbols.forEach(sym => {
+        const d = priceData[sym];
+        if (d && d.price > 0) {
+          priceCache[sym] = {
+            price:     d.price,
+            ref:       d.ref || d.price,
+            change:    d.price - (d.ref || d.price),
+            changePct: d.changePct || 0,
+            volume:    d.volume || 0,
+            source:    d.source || 'GAS',
+            time:      new Date().toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})
+          };
+          const wlItem = (localData.watchlist||[]).find(i => i.symbol === sym);
+          if (wlItem) checkAlerts(wlItem, priceCache[sym]);
+        }
+      });
+
+      const got = Object.keys(priceData).length;
+      const upd = $('lastUpdate');
+      if (upd) upd.textContent = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}${got>0?' [GAS ✓ '+got+' mã]':' [GAS ✓]'}`;
+      setSyncStatus('ok', `GAS ✓${got>0?' | '+got+'/'+symbols.length+' giá live':'  | Thêm mã để xem giá'}`);
+
+    } catch(e) {
+      console.error('refreshAllPrices error:', e);
+      setSyncStatus('error', 'Lỗi lấy giá: ' + e.message);
+    }
+
+  } else {
+    // No GAS URL — simulation
+    const idxFallback = [
+      ['VNINDEX','tick-VNINDEX','tick-VNINDEX-chg',1230],
+      ['HNX',    'tick-HNX',   'tick-HNX-chg',    225],
+      ['UPCOM',  'tick-UPCOM', 'tick-UPCOM-chg',   92]
+    ];
+    idxFallback.forEach(([key,pEl,cEl,base]) => {
+      const chg = (Math.random()-.5)*.008*base;
+      const pe=$(pEl), ce=$(cEl);
+      if(pe) pe.textContent = fmt(base+chg,2);
+      if(ce){ ce.textContent=fmtPct(chg/base*100); ce.className='ticker-change '+((chg>=0)?'up':'down'); }
+    });
+    symbols.forEach(sym => {
+      const pos = (localData.portfolio||[]).find(p=>p.symbol===sym);
+      const base = priceCache[sym]?.price || pos?.avgCost || null;
+      if (!base) return;
+      const drift = (Math.random()-.5)*.02;
+      const price = Math.round(base*(1+drift)/100)*100;
+      priceCache[sym] = { price, ref:base, change:price-base, changePct:drift*100, volume:0, source:'SIM',
+        time: new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}) };
+    });
+    const upd = $('lastUpdate');
+    if (upd) upd.textContent = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} [Simulation]`;
+    setSyncStatus('error', '⚠ Chưa cài GAS — cài đặt để có giá thực');
+  }
+
+  if (icon) icon.classList.remove('spinning');
+  checkPendingOrders();
+  renderCurrentPage();
+}
 
   if (config.gsUrl && symbols.length > 0) {
     // ── Batch fetch tất cả qua GAS proxy (1 request duy nhất) ──
@@ -1927,30 +2013,9 @@ async function refreshAllPrices() {
     $('lastUpdate').textContent = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} [GAS - ${gotPrices}/${symbols.length} mã]`;
     setSyncStatus('ok', `Google Sheets ✓ | ${gotPrices} giá live`);
 
-  } else {
-    // Không có GS → simulation cho tất cả
-    for (const idx of ['VNINDEX','HNX','UPCOM']) {
-      const d       = await fetchIndexPrice(idx);
-      const priceEl = $(`tick-${idx}`);
-      const chgEl   = $(`tick-${idx}-chg`);
-      if (priceEl) priceEl.textContent = d.price ? fmt(d.price, 2) : '--';
-      if (chgEl) {
-        chgEl.textContent = fmtPct(d.changePct || 0);
-        chgEl.className   = 'ticker-change ' + ((d.changePct||0) >= 0 ? 'pos' : 'neg');
-      }
-    }
-    for (const sym of symbols) {
-      const d = await fetchPrice(sym);
-      if (d?.price) { priceCache[sym] = d; }
-    }
-    $('lastUpdate').textContent = `Cập nhật: ${new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} [Simulation - chưa có GS]`;
-    setSyncStatus('error', '⚠ Chưa cài GS → giá Simulation');
   }
 
-  icon.classList.remove('spinning');
-  checkPendingOrders();
-  renderCurrentPage();
-}
+  // (new refreshAllPrices handles this below)
 
 // ─── ALERTS ──────────────────────────────────────────────────
 function checkAlerts(item, priceData) {
@@ -2312,7 +2377,7 @@ function editOrderModal(id) {
   if (!o) return;
   $('orderModalTitle').textContent = (o.type==='buy'?'▲ Sửa lệnh Mua':'▼ Sửa lệnh Bán');
   $('order-id').value   = o.id;
-  $('orderType').value  = o.type;
+  $('order-type').value = o.type;
   $('order-symbol').value   = o.symbol||'';
   $('order-price').value    = o.orderPrice||'';
   $('order-quantity').value = o.quantity||'';
@@ -2870,6 +2935,7 @@ function copyGASCode() {
 
 // ─── EVENT HANDLERS ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  try {
   loadConfig();
   loadLocalData();
   updateAlertBadge();
@@ -3183,7 +3249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('hist-type').value = 'sell';
     updateHistOrderSummary();
     // Store id for update
-    $('histEditId') && ($('histEditId').value = ht.id);
+    // (id already set in order-id field)
     openModal('historyOrderModal');
   };
   window.delHistTrade = function(id) {
@@ -3230,6 +3296,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sync from GS on load
   if (config.gsUrl) syncFromGS().then(() => autoFetchAllNames());
+
+  } catch(initErr) {
+    console.error('Init error:', initErr);
+    // Show error in UI so user knows what happened
+    const banner = document.getElementById('gsConfigBanner');
+    if (banner) {
+      banner.innerHTML = '<div style="color:#ff3355;padding:10px;font-size:.8rem">⚠ Lỗi khởi động: ' + initErr.message + '. Kiểm tra Console (F12).</div>';
+      banner.style.display = 'flex';
+    }
+  }
 });
 
 // ─── ORDER MODAL ─────────────────────────────────────────────
