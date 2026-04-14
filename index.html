@@ -298,7 +298,10 @@ canvas{display:block}
         <div style="height:260px;position:relative;padding:12px"><canvas id="portChart"></canvas></div>
       </div>
       <div class="card" id="htCard" style="display:none">
-        <div class="card-hdr"><h3><i class="fas fa-history"></i> Giao dịch cũ (đã đóng)</h3><div style="display:flex;align-items:center;gap:8px"><span class="cs" id="htSum"></span><button class="btn btn-d btn-sm" id="btnDelSelHT" style="display:none" onclick="deleteSelected('cbHT','histTrades')">Xoá 0 dòng</button></div></div>
+        <div class="card-hdr"><h3><i class="fas fa-history"></i> Giao dịch cũ (đã đóng)</h3><button class="btn btn-d btn-sm" id="btnDelSelHT" style="display:none" onclick="deleteSelected('cbHT','histTrades')">Xoá 0 dòng</button></div>
+        <div id="htSummaryRow" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0;border-bottom:1px solid var(--bdr)">
+          <!-- filled by renderPortfolio -->
+        </div>
         <div class="tscroll"><table class="dtb"><thead><tr><th style="width:32px"><input type="checkbox" onchange="toggleSelectAll('cbHT',this)" style="cursor:pointer;accent-color:var(--cyan)"></th><th>Mã</th><th>KL</th><th>Giá mua</th><th>Giá bán</th><th>Lãi/Lỗ</th><th>%</th><th>Ngày</th><th>Thao tác</th></tr></thead><tbody id="tbHT"></tbody></table></div>
       </div>
     </div>
@@ -614,166 +617,7 @@ canvas{display:block}
 // ================================================================
 
 // ── GAS SCRIPT CODE (embedded for copy) ────────────────────────
-const GAS_CODE = `// VN Stock Tracker — Apps Script v5
-// CÁCH UPDATE (GIỮ URL): Deploy > Manage deployments > Edit > New version
-// Lần đầu: Deploy > New deployment > Web app > Execute as Me > Anyone > Deploy
-
-const VER = 5;
-
-function doGet(e)  { return handle(e); }
-function doPost(e) { return handle(e); }
-
-function handle(e) {
-  try {
-    const p    = e.parameter || {};
-    let body   = {};
-    if (e.postData?.contents) { try { body = JSON.parse(e.postData.contents); } catch(_){} }
-    const all  = Object.assign({}, body, p);
-    const act  = all.action;
-    const ss   = SpreadsheetApp.getActiveSpreadsheet();
-
-    if (act === 'ping')
-      return ok({ ver: VER, name: ss.getName(), sheets: ss.getSheets().map(s=>s.getName()) });
-
-    // ── PRICE PROXY (gọi TCBS từ server Google, không bị CORS) ──
-    if (act === 'getPrice') {
-      const syms = String(all.symbols||'').toUpperCase().split(',').map(s=>s.trim()).filter(Boolean);
-      const out  = {};
-      syms.forEach(s => { const d = tcbsPrice(s); if(d) out[s]=d; });
-      return ok(out);
-    }
-    if (act === 'getIndex') {
-      return ok({ VNINDEX: tcbsIndex('VNINDEX'), HNX: tcbsIndex('HNXINDEX'), UPCOM: tcbsIndex('UPCOMINDEX') });
-    }
-    if (act === 'getHistory') {
-      const sym  = String(all.symbol||'').toUpperCase().trim();
-      const days = parseInt(all.days||365);
-      return ok(tcbsHistory(sym, days));
-    }
-    if (act === 'getCompanyName') {
-      const sym = String(all.symbol||'').toUpperCase().trim();
-      return ok({ name: getNameTCBS(sym) });
-    }
-
-    // ── CRUD ──
-    const sh = all.sheet;
-    if (act === 'getAll') {
-      const s = getOrCreate(ss, sh);
-      const v = s.getDataRange().getValues();
-      if (v.length <= 1) return ok([]);
-      const h = v[0].map(x=>String(x).trim());
-      return ok(v.slice(1).map(r=>{
-        const o={};h.forEach((k,i)=>{ o[k]=(r[i]===''||r[i]==null)?null:r[i]; });return o;
-      }).filter(r=>Object.values(r).some(x=>x!=null&&x!=='')));
-    }
-    if (act === 'upsert')     { upsert(getOrCreate(ss,sh), body.record||JSON.parse(all.record||'{}')); return ok({saved:true}); }
-    if (act === 'delete')     { delRow(getOrCreate(ss,sh), all.id); return ok({deleted:true}); }
-    if (act === 'replaceAll') { repAll(getOrCreate(ss,sh), body.records||(all.records?JSON.parse(all.records):[])); return ok({replaced:true}); }
-    return ok({ error:'Unknown: '+act });
-  } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-// ── TCBS PRICE (đơn vị nghìn đồng → × 1000 = VND) ──
-function tcbsPrice(sym) {
-  try {
-    const to = Math.floor(Date.now()/1000), fr = to-6*86400;
-    const r  = UrlFetchApp.fetch(
-      \`https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=\${sym}&type=stock&resolution=D&from=\${fr}&to=\${to}\`,
-      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }
-    );
-    if (r.getResponseCode()!==200) return null;
-    const bars = JSON.parse(r.getContentText()).data||[];
-    if (!bars.length) return null;
-    const d    = bars[bars.length-1];
-    const prev = bars.length>=2 ? bars[bars.length-2] : d;
-    const close = parseFloat(d.close||d.c||0)*1000;
-    const ref   = parseFloat(prev.close||prev.c||d.open||d.o||0)*1000||close;
-    if (!close) return null;
-    return { price:close, ref, change:close-ref, changePct:ref?(close-ref)/ref*100:0, volume:parseInt(d.volume||d.v||0), source:'TCBS' };
-  } catch(e) { return null; }
-}
-
-function tcbsIndex(code) {
-  try {
-    const to = Math.floor(Date.now()/1000), fr = to-5*86400;
-    const r  = UrlFetchApp.fetch(
-      \`https://apipubaws.tcbs.com.vn/stock-insight/v1/index/historical-hose-index?resolution=D&from=\${fr}&to=\${to}&code=\${code}\`,
-      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }
-    );
-    if (r.getResponseCode()!==200) return null;
-    const bars = JSON.parse(r.getContentText()).data||[];
-    if (!bars.length) return null;
-    const d    = bars[bars.length-1];
-    const prev = bars.length>=2 ? bars[bars.length-2] : d;
-    const price= parseFloat(d.closeIndex||d.close||d.c||0);
-    const ref  = parseFloat(prev.closeIndex||prev.close||prev.c||price);
-    return { price, ref, change:price-ref, changePct:ref?(price-ref)/ref*100:0 };
-  } catch(e) { return null; }
-}
-
-function tcbsHistory(sym, days) {
-  try {
-    const to = Math.floor(Date.now()/1000), fr = to-(days+10)*86400;
-    const r  = UrlFetchApp.fetch(
-      \`https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=\${sym}&type=stock&resolution=D&from=\${fr}&to=\${to}\`,
-      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }
-    );
-    if (r.getResponseCode()!==200) return [];
-    return (JSON.parse(r.getContentText()).data||[]).map(b=>({
-      date:  String(b.tradingDate||b.date||'').slice(0,10),
-      open:  parseFloat(b.open||b.o||0)*1000,
-      high:  parseFloat(b.high||b.h||0)*1000,
-      low:   parseFloat(b.low||b.l||0)*1000,
-      close: parseFloat(b.close||b.c||0)*1000,
-      volume:parseInt(b.volume||b.v||0)
-    })).filter(b=>b.close>100&&b.date.length===10).slice(-days);
-  } catch(e) { return []; }
-}
-
-function getNameTCBS(sym) {
-  try {
-    const r = UrlFetchApp.fetch(
-      \`https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/\${sym}/overview\`,
-      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }
-    );
-    if (r.getResponseCode()!==200) return '';
-    const j = JSON.parse(r.getContentText());
-    return j.companyName||j.shortName||j.name||'';
-  } catch(e) { return ''; }
-}
-
-// ── HELPERS ──
-function ok(data) {
-  return ContentService.createTextOutput(JSON.stringify({ok:true,data})).setMimeType(ContentService.MimeType.JSON);
-}
-function getOrCreate(ss, name) {
-  if (!name) throw new Error('Sheet name required');
-  return ss.getSheetByName(name)||ss.insertSheet(name);
-}
-function repAll(sh, rows) {
-  sh.clearContents();
-  if (!rows||!rows.length) return;
-  const keys = Object.keys(rows[0]);
-  sh.appendRow(keys);
-  rows.forEach(r=>sh.appendRow(keys.map(k=>r[k]==null?'':r[k])));
-}
-function upsert(sh, rec) {
-  const all  = sh.getDataRange().getValues();
-  let hdrs   = all.length?all[0].map(h=>String(h).trim()):[];
-  const newK = Object.keys(rec).filter(k=>!hdrs.includes(k));
-  if (newK.length) { hdrs=hdrs.concat(newK); if(all.length) sh.getRange(1,1,1,hdrs.length).setValues([hdrs]); else{sh.appendRow(hdrs);return upsert(sh,rec);} }
-  const ic = hdrs.indexOf('id'); let row=-1;
-  if (ic>=0&&rec.id!=null) for(let i=1;i<all.length;i++) if(String(all[i][ic])===String(rec.id)){row=i+1;break;}
-  const rd = hdrs.map(h=>rec[h]==null?'':rec[h]);
-  if (row>0) sh.getRange(row,1,1,hdrs.length).setValues([rd]); else sh.appendRow(rd);
-}
-function delRow(sh, id) {
-  const all=sh.getDataRange().getValues(); if(all.length<=1) return;
-  const ic=all[0].map(h=>String(h).trim()).indexOf('id'); if(ic<0) return;
-  for(let i=all.length-1;i>=1;i--) if(String(all[i][ic])===String(id)){sh.deleteRow(i+1);return;}
-}`;
+const GAS_CODE = "// VN Stock Tracker \u2014 Apps Script v5\n// C\u00c1CH UPDATE (GI\u1eee URL): Deploy > Manage deployments > Edit > New version\n// L\u1ea7n \u0111\u1ea7u: Deploy > New deployment > Web app > Execute as Me > Anyone > Deploy\n\nconst VER = 5;\n\nfunction doGet(e)  { return handle(e); }\nfunction doPost(e) { return handle(e); }\n\nfunction handle(e) {\n  try {\n    const p    = e.parameter || {};\n    let body   = {};\n    if (e.postData?.contents) { try { body = JSON.parse(e.postData.contents); } catch(_){} }\n    const all  = Object.assign({}, body, p);\n    const act  = all.action;\n    const ss   = SpreadsheetApp.getActiveSpreadsheet();\n\n    if (act === 'ping')\n      return ok({ ver: VER, name: ss.getName(), sheets: ss.getSheets().map(s=>s.getName()) });\n\n    // \u2500\u2500 PRICE PROXY (g\u1ecdi TCBS t\u1eeb server Google, kh\u00f4ng b\u1ecb CORS) \u2500\u2500\n    if (act === 'getPrice') {\n      const syms = String(all.symbols||'').toUpperCase().split(',').map(s=>s.trim()).filter(Boolean);\n      const out  = {};\n      syms.forEach(s => { const d = tcbsPrice(s); if(d) out[s]=d; });\n      return ok(out);\n    }\n    if (act === 'getIndex') {\n      return ok({ VNINDEX: tcbsIndex('VNINDEX'), HNX: tcbsIndex('HNXINDEX'), UPCOM: tcbsIndex('UPCOMINDEX') });\n    }\n    if (act === 'getHistory') {\n      const sym  = String(all.symbol||'').toUpperCase().trim();\n      const days = parseInt(all.days||365);\n      return ok(tcbsHistory(sym, days));\n    }\n    if (act === 'getCompanyName') {\n      const sym = String(all.symbol||'').toUpperCase().trim();\n      return ok({ name: getNameTCBS(sym) });\n    }\n\n    // \u2500\u2500 CRUD \u2500\u2500\n    const sh = all.sheet;\n    if (act === 'getAll') {\n      const s = getOrCreate(ss, sh);\n      const v = s.getDataRange().getValues();\n      if (v.length <= 1) return ok([]);\n      const h = v[0].map(x=>String(x).trim());\n      return ok(v.slice(1).map(r=>{\n        const o={};h.forEach((k,i)=>{ o[k]=(r[i]===''||r[i]==null)?null:r[i]; });return o;\n      }).filter(r=>Object.values(r).some(x=>x!=null&&x!=='')));\n    }\n    if (act === 'upsert')     { upsert(getOrCreate(ss,sh), body.record||JSON.parse(all.record||'{}')); return ok({saved:true}); }\n    if (act === 'delete')     { delRow(getOrCreate(ss,sh), all.id); return ok({deleted:true}); }\n    if (act === 'replaceAll') { repAll(getOrCreate(ss,sh), body.records||(all.records?JSON.parse(all.records):[])); return ok({replaced:true}); }\n    return ok({ error:'Unknown: '+act });\n  } catch(err) {\n    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\n// \u2500\u2500 TCBS PRICE (\u0111\u01a1n v\u1ecb ngh\u00ecn \u0111\u1ed3ng \u2192 \u00d7 1000 = VND) \u2500\u2500\nfunction tcbsPrice(sym) {\n  try {\n    const to = Math.floor(Date.now()/1000), fr = to-6*86400;\n    const r  = UrlFetchApp.fetch(\n      `https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=${sym}&type=stock&resolution=D&from=${fr}&to=${to}`,\n      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }\n    );\n    if (r.getResponseCode()!==200) return null;\n    const bars = JSON.parse(r.getContentText()).data||[];\n    if (!bars.length) return null;\n    const d    = bars[bars.length-1];\n    const prev = bars.length>=2 ? bars[bars.length-2] : d;\n    const close = parseFloat(d.close||d.c||0)*1000;\n    const ref   = parseFloat(prev.close||prev.c||d.open||d.o||0)*1000||close;\n    if (!close) return null;\n    return { price:close, ref, change:close-ref, changePct:ref?(close-ref)/ref*100:0, volume:parseInt(d.volume||d.v||0), source:'TCBS' };\n  } catch(e) { return null; }\n}\n\nfunction tcbsIndex(code) {\n  try {\n    const to = Math.floor(Date.now()/1000), fr = to-5*86400;\n    const r  = UrlFetchApp.fetch(\n      `https://apipubaws.tcbs.com.vn/stock-insight/v1/index/historical-hose-index?resolution=D&from=${fr}&to=${to}&code=${code}`,\n      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }\n    );\n    if (r.getResponseCode()!==200) return null;\n    const bars = JSON.parse(r.getContentText()).data||[];\n    if (!bars.length) return null;\n    const d    = bars[bars.length-1];\n    const prev = bars.length>=2 ? bars[bars.length-2] : d;\n    const price= parseFloat(d.closeIndex||d.close||d.c||0);\n    const ref  = parseFloat(prev.closeIndex||prev.close||prev.c||price);\n    return { price, ref, change:price-ref, changePct:ref?(price-ref)/ref*100:0 };\n  } catch(e) { return null; }\n}\n\nfunction tcbsHistory(sym, days) {\n  try {\n    const to = Math.floor(Date.now()/1000), fr = to-(days+10)*86400;\n    const r  = UrlFetchApp.fetch(\n      `https://apipubaws.tcbs.com.vn/stock-insight/v1/stock/bars-long-term?ticker=${sym}&type=stock&resolution=D&from=${fr}&to=${to}`,\n      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }\n    );\n    if (r.getResponseCode()!==200) return [];\n    return (JSON.parse(r.getContentText()).data||[]).map(b=>({\n      date:  String(b.tradingDate||b.date||'').slice(0,10),\n      open:  parseFloat(b.open||b.o||0)*1000,\n      high:  parseFloat(b.high||b.h||0)*1000,\n      low:   parseFloat(b.low||b.l||0)*1000,\n      close: parseFloat(b.close||b.c||0)*1000,\n      volume:parseInt(b.volume||b.v||0)\n    })).filter(b=>b.close>100&&b.date.length===10).slice(-days);\n  } catch(e) { return []; }\n}\n\nfunction getNameTCBS(sym) {\n  try {\n    const r = UrlFetchApp.fetch(\n      `https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/${sym}/overview`,\n      { muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'} }\n    );\n    if (r.getResponseCode()!==200) return '';\n    const j = JSON.parse(r.getContentText());\n    return j.companyName||j.shortName||j.name||'';\n  } catch(e) { return ''; }\n}\n\n// \u2500\u2500 HELPERS \u2500\u2500\nfunction ok(data) {\n  return ContentService.createTextOutput(JSON.stringify({ok:true,data})).setMimeType(ContentService.MimeType.JSON);\n}\nfunction getOrCreate(ss, name) {\n  if (!name) throw new Error('Sheet name required');\n  return ss.getSheetByName(name)||ss.insertSheet(name);\n}\nfunction repAll(sh, rows) {\n  sh.clearContents();\n  if (!rows||!rows.length) return;\n  const keys = Object.keys(rows[0]);\n  sh.appendRow(keys);\n  rows.forEach(r=>sh.appendRow(keys.map(k=>r[k]==null?'':r[k])));\n}\nfunction upsert(sh, rec) {\n  const all  = sh.getDataRange().getValues();\n  let hdrs   = all.length?all[0].map(h=>String(h).trim()):[];\n  const newK = Object.keys(rec).filter(k=>!hdrs.includes(k));\n  if (newK.length) { hdrs=hdrs.concat(newK); if(all.length) sh.getRange(1,1,1,hdrs.length).setValues([hdrs]); else{sh.appendRow(hdrs);return upsert(sh,rec);} }\n  const ic = hdrs.indexOf('id'); let row=-1;\n  if (ic>=0&&rec.id!=null) for(let i=1;i<all.length;i++) if(String(all[i][ic])===String(rec.id)){row=i+1;break;}\n  const rd = hdrs.map(h=>rec[h]==null?'':rec[h]);\n  if (row>0) sh.getRange(row,1,1,hdrs.length).setValues([rd]); else sh.appendRow(rd);\n}\nfunction delRow(sh, id) {\n  const all=sh.getDataRange().getValues(); if(all.length<=1) return;\n  const ic=all[0].map(h=>String(h).trim()).indexOf('id'); if(ic<0) return;\n  for(let i=all.length-1;i>=1;i--) if(String(all[i][ic])===String(id)){sh.deleteRow(i+1);return;}\n}\n";
 
 // ── GLOBAL STATE ────────────────────────────────────────────────
 const CFG_KEY  = 'vnst6_cfg';
@@ -1332,27 +1176,39 @@ function renderPortfolio() {
     if (!D.histTrades.length) { htCard.style.display = 'none'; }
     else {
       htCard.style.display = '';
-      let totalHL = 0;
+      let totalHL = 0, totalBuyVal = 0;
       const tbht = $('tbHT');
       if (tbht) tbht.innerHTML = D.histTrades.map(ht => {
         const qty = Number(ht.quantity||0), bp = Number(ht.buyPrice||0), sp = Number(ht.sellPrice||0), fee = Number(ht.fee||0);
         const pnl = (sp-bp)*qty-fee, pct = bp > 0 ? (sp-bp)/bp*100 : 0;
         totalHL += pnl;
+        totalBuyVal += bp * qty;
         return `<tr>
           <td style="width:32px"><input type="checkbox" class="cbHT" data-id="${ht.id}" onchange="updateDeleteBtn('cbHT')" style="cursor:pointer;accent-color:var(--cyan)"></td>
           <td><span class="sym">${ht.symbol}</span></td>
           <td>${fN(qty)}</td><td>${fN(bp,0)}</td><td>${fN(sp,0)}</td>
           <td class="${clr(pnl)}" style="font-weight:700">${fM(pnl)}</td>
           <td class="${clr(pnl)}">${fP(pct)}</td>
-          <td style="color:var(--tm)">${(ht.date||'').slice(0,10)}</td>
+          <td style="color:var(--t2)">${(ht.date||'').slice(0,10)}</td>
           <td style="display:flex;gap:4px">
             <button class="btn btn-s btn-sm" onclick="editHT('${ht.id}')"><i class="fas fa-edit"></i></button>
             <button class="btn btn-d btn-sm" onclick="delHT('${ht.id}')"><i class="fas fa-trash"></i></button>
           </td>
         </tr>`;
       }).join('');
-      const htSum = $('htSum');
-      if (htSum) { htSum.textContent = D.histTrades.length + ' GD | Tổng L/L: ' + fM(totalHL); htSum.className = 'cs ' + clr(totalHL); }
+      // Summary row at top
+      const avgPct = totalBuyVal > 0 ? totalHL / totalBuyVal * 100 : null;
+      const sr = $('htSummaryRow');
+      if (sr) sr.innerHTML = [
+        ['TỔNG GD', D.histTrades.length + ' giao dịch', ''],
+        ['TỔNG LÃI/LỖ', fM(totalHL), clr(totalHL)],
+        ['% TRUNG BÌNH', avgPct != null ? fP(avgPct) : '--', avgPct != null ? clr(avgPct) : 'neu'],
+      ].map(([lbl,val,cls]) =>
+        `<div style="padding:10px 14px;border-right:1px solid var(--bdr)">
+          <div style="font-size:.63rem;color:var(--t2);margin-bottom:4px">${lbl}</div>
+          <div class="${cls}" style="font-size:.95rem;font-weight:700">${val}</div>
+        </div>`
+      ).join('');
     }
   }
 }
@@ -2179,10 +2035,35 @@ function showDetail(type) {
       return `<tr><td><span class="sym">${ht.symbol}</span></td><td style="color:var(--t2);font-size:.7rem">${(ht.date||'').slice(0,10)}</td><td>${fN(sp,0)}</td><td>${fN(qty)}</td><td class="${clr(p)}" style="font-weight:700">${fM(p)}</td><td class="${clr(p)}">${fP(pct)}</td></tr>`;
     }).join('');
     html = `<div>
-      <div style="background:var(--inp);border-radius:6px;padding:10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:.75rem;color:var(--t2)">Tổng L/L đã thực hiện</span>
-        <span class="${clr(stats.realizedPnl)}" style="font-size:1.1rem;font-weight:700">${fM(stats.realizedPnl)}</span>
-      </div>
+      (() => {
+        // Calculate avg % across all realized trades
+        const allSells = D.orders.filter(o=>o.type==='sell'&&o.status==='filled');
+        const allHT = D.histTrades;
+        let totalCostBase = 0, totalGain = 0, tradeCount = 0;
+        allSells.forEach(o => {
+          const ab = Number(o.avgBuyPrice||0)||avgBuy(o.symbol,o.id);
+          const fp = Number(o.fillPrice||o.orderPrice||0);
+          if(ab>0&&fp>0){ totalCostBase+=ab*Number(o.quantity||0); totalGain+=fp*Number(o.quantity||0); tradeCount++; }
+        });
+        allHT.forEach(ht => {
+          const bp=Number(ht.buyPrice||0),sp=Number(ht.sellPrice||0),qty=Number(ht.quantity||0);
+          if(bp>0&&sp>0){ totalCostBase+=bp*qty; totalGain+=sp*qty; tradeCount++; }
+        });
+        const avgPct = totalCostBase>0 ? (totalGain-totalCostBase)/totalCostBase*100 : null;
+        const avgPctStr = avgPct!=null ? fP(avgPct) : '--';
+        const avgPctCls = avgPct!=null ? clr(avgPct) : 'neu';
+        return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">'
+          + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
+          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:3px">TỔNG L/L ĐÃ THỰC HIỆN</div>'
+          + '<div class="' + clr(stats.realizedPnl) + '" style="font-size:1rem;font-weight:700">' + fM(stats.realizedPnl) + '</div></div>'
+          + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
+          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:3px">% TB (CẢ DANH MỤC)</div>'
+          + '<div class="' + avgPctCls + '" style="font-size:1rem;font-weight:700">' + avgPctStr + '</div></div>'
+          + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
+          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:3px">SỐ GIAO DỊCH BÁN</div>'
+          + '<div style="font-size:1rem;font-weight:700">' + tradeCount + '</div></div>'
+          + '</div>';
+      })()
       ${sellRows?`<p style="font-size:.72rem;color:var(--t2);margin-bottom:6px"><strong>Từ lệnh bán (${D.orders.filter(o=>o.type==='sell'&&o.status==='filled').length} lệnh):</strong></p>
       <div class="tscroll" style="margin-bottom:12px"><table class="dtb"><thead><tr><th>Mã</th><th>Ngày</th><th>Giá bán</th><th>KL</th><th>L/L</th><th>%</th></tr></thead><tbody>${sellRows}</tbody></table></div>`:''}
       ${htRows?`<p style="font-size:.72rem;color:var(--t2);margin-bottom:6px"><strong>Từ giao dịch cũ (${D.histTrades.length} GD):</strong></p>
