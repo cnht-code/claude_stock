@@ -251,7 +251,7 @@ canvas{display:block}
       </div>
       <div class="card">
         <div class="card-hdr"><h3><i class="fas fa-table"></i> Giá thị trường hôm nay</h3><span class="lup" id="lastUpd">--</span></div>
-        <div class="tscroll"><table class="dtb"><thead><tr><th>Mã / Tên</th><th>Giá TT</th><th>Thay đổi</th><th>%</th><th>KL</th><th>Nguồn</th></tr></thead><tbody id="tbDash"><tr><td colspan="6" class="empty">Thêm mã ở Danh mục quan tâm</td></tr></tbody></table></div>
+        <div class="tscroll"><table class="dtb"><thead><tr><th>Mã</th><th>Giá TT</th><th>Thay đổi</th><th>%</th><th>KL giao dịch</th><th>Đang nắm</th><th>Giá vốn</th><th>Nguồn</th></tr></thead><tbody id="tbDash"><tr><td colspan="8" class="empty">Chưa có lệnh nào</td></tr></tbody></table></div>
       </div>
       <div class="card">
         <div class="card-hdr">
@@ -273,7 +273,7 @@ canvas{display:block}
         <button class="btn btn-d btn-sm" id="btnDelSelWL" style="display:none" onclick="deleteSelected('cbWL','watchlist')">Xoá 0 dòng</button>
         <input type="text" id="wlSearch" placeholder="🔍 Tìm mã..." style="padding:7px 11px;background:var(--inp);color:var(--t1);border:1px solid var(--bdr);border-radius:6px;font-family:var(--mono);font-size:.78rem;outline:none;min-width:140px"/>
       </div>
-      <div class="card"><div class="tscroll"><table class="dtb"><thead><tr><th>Mã / Tên</th><th>Giá TT</th><th>%</th><th>Giá mua MT</th><th>Giá bán MT</th><th>Alert ±</th><th>Thao tác</th></tr></thead><tbody id="tbWL"><tr><td colspan="7" class="empty">Chưa có mã nào.</td></tr></tbody></table></div></div>
+      <div class="card"><div class="tscroll"><table class="dtb"><thead><tr><th style="width:32px"><input type="checkbox" onchange="toggleSelectAll('cbWL',this)" style="cursor:pointer;accent-color:var(--cyan)"></th><th>Mã / Tên</th><th>Giá TT</th><th>%</th><th>Đang nắm</th><th>Giá vốn</th><th>Mua MT</th><th>Bán MT</th><th>Lệnh</th><th>Thao tác</th></tr></thead><tbody id="tbWL"><tr><td colspan="10" class="empty">Chưa có mã nào.</td></tr></tbody></table></div></div>
     </div>
 
     <!-- PORTFOLIO -->
@@ -298,8 +298,8 @@ canvas{display:block}
         <div style="height:260px;position:relative;padding:12px"><canvas id="portChart"></canvas></div>
       </div>
       <div class="card" id="htCard" style="display:none">
-        <div class="card-hdr"><h3><i class="fas fa-history"></i> Giao dịch cũ (đã đóng)</h3><span class="cs" id="htSum"></span></div>
-        <div class="tscroll"><table class="dtb"><thead><tr><th>Mã</th><th>KL</th><th>Giá mua</th><th>Giá bán</th><th>Lãi/Lỗ</th><th>%</th><th>Ngày</th><th>Thao tác</th></tr></thead><tbody id="tbHT"></tbody></table></div>
+        <div class="card-hdr"><h3><i class="fas fa-history"></i> Giao dịch cũ (đã đóng)</h3><div style="display:flex;align-items:center;gap:8px"><span class="cs" id="htSum"></span><button class="btn btn-d btn-sm" id="btnDelSelHT" style="display:none" onclick="deleteSelected('cbHT','histTrades')">Xoá 0 dòng</button></div></div>
+        <div class="tscroll"><table class="dtb"><thead><tr><th style="width:32px"><input type="checkbox" onchange="toggleSelectAll('cbHT',this)" style="cursor:pointer;accent-color:var(--cyan)"></th><th>Mã</th><th>KL</th><th>Giá mua</th><th>Giá bán</th><th>Lãi/Lỗ</th><th>%</th><th>Ngày</th><th>Thao tác</th></tr></thead><tbody id="tbHT"></tbody></table></div>
       </div>
     </div>
 
@@ -410,6 +410,16 @@ canvas{display:block}
 <div class="tbox" id="tbox"></div>
 
 <!-- ===== MODALS ===== -->
+
+<!-- Detail Modal (click on summary cards) -->
+<div class="modal" id="detailModal">
+  <div class="mbg" onclick="closeModal('detailModal')"></div>
+  <div class="mbox" style="max-width:640px">
+    <div class="mhdr"><h3 id="detailTitle">Chi tiết</h3><button class="ibtn" onclick="closeModal('detailModal')"><i class="fas fa-times"></i></button></div>
+    <div class="mbody" id="detailBody"></div>
+    <div class="mfoot"><button class="btn btn-s" onclick="closeModal('detailModal')">Đóng</button></div>
+  </div>
+</div>
 
 <!-- GAS Modal -->
 <div class="modal" id="gasModal">
@@ -891,9 +901,11 @@ async function refreshPrices() {
   const ico = $('refreshIco');
   if (ico) ico.style.animation = 'spin .7s linear infinite';
 
+  // Collect symbols from orders + positions (watchlist is derived FROM orders)
   const syms = [...new Set([
-    ...D.watchlist.map(w => w.symbol),
-    ...D.positions.map(p => p.symbol)
+    ...D.orders.filter(o => o.status !== 'cancelled').map(o => o.symbol),
+    ...D.positions.map(p => p.symbol),
+    ...D.watchlist.map(w => w.symbol)
   ].filter(Boolean))];
 
   try {
@@ -1178,23 +1190,38 @@ function renderDashboard() {
   // Table
   const tb = $('tbDash');
   if (!tb) return;
-  // Deduplicate watchlist for display
+  // Show symbols from active orders + positions only (not all watchlist)
+  const activeSyms = [...new Set([
+    ...D.orders.filter(o => o.status !== 'cancelled').map(o => o.symbol),
+    ...D.positions.map(p => p.symbol)
+  ])];
+  // Build display items with price data
   const seenDash = new Set();
-  const dashWL = [...D.watchlist].reverse().filter(i => { if(seenDash.has(i.symbol)) return false; seenDash.add(i.symbol); return true; }).reverse();
-  if (!dashWL.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Thêm mã ở Danh mục quan tâm</td></tr>'; }
+  const dashItems = activeSyms
+    .filter(sym => { if(seenDash.has(sym)) return false; seenDash.add(sym); return true; })
+    .map(sym => ({ symbol: sym, name: D.watchlist.find(w => w.symbol === sym)?.name || '', ...D.watchlist.find(w => w.symbol === sym) }));
+
+  if (!dashItems.length && !D.watchlist.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Chưa có lệnh nào. Import Excel hoặc đặt lệnh để bắt đầu.</td></tr>'; }
   else {
-    tb.innerHTML = dashWL.map(item => {
-      const p = PC[item.symbol] || {};
+    // If no active orders yet but watchlist has items, show watchlist
+    const displayItems = dashItems.length ? dashItems : [...D.watchlist].slice(0, 20);
+    tb.innerHTML = displayItems.map(item => {
+      const sym = item.symbol || item;
+      const p = PC[sym] || {};
       const hp = p.price && p.price > 0;
       const cls = hp && p.changePct != null ? clr(p.changePct) : 'neu';
-      const src = p.source === 'SIM' ? '<span style="color:var(--tm);font-size:.68rem">~Sim</span>'
+      const pos = D.positions.find(pt => pt.symbol === sym);
+      const src = p.source === 'SIM' ? '<span style="color:var(--t2);font-size:.68rem">~Sim</span>'
                 : p.source ? `<span style="color:var(--green);font-size:.68rem">✓${p.source}</span>` : '--';
+      const vol = p.volume ? (p.volume>1e6 ? fN(Math.round(p.volume/1e6),1)+'M' : fN(p.volume)) : '--';
       return `<tr>
-        <td><span class="sym">${item.symbol}</span>${item.name?`<div style="font-size:.63rem;color:var(--t2)">${item.name}</div>`:''}</td>
-        <td style="font-weight:700">${hp ? fN(p.price,0) : '<span style="color:var(--tm)">--</span>'}</td>
+        <td><span class="sym">${sym}</span>${item.name?`<div style="font-size:.63rem;color:var(--t2)">${item.name}</div>`:''}</td>
+        <td style="font-weight:700">${hp ? fN(p.price,0) : '<span style="color:var(--t2)">--</span>'}</td>
         <td class="${cls}">${hp && p.change!=null ? (p.change>=0?'+':'')+fN(p.change,0) : '--'}</td>
         <td class="${cls}">${hp && p.changePct!=null ? fP(p.changePct) : '--'}</td>
-        <td class="neu">${p.volume ? (p.volume>1e6 ? fN(Math.round(p.volume/1e6),1)+'M' : fN(p.volume)) : '--'}</td>
+        <td class="neu">${vol}</td>
+        <td style="color:var(--cyan);font-weight:700">${pos ? fN(pos.quantity) : '--'}</td>
+        <td style="color:var(--t2)">${pos ? fN(pos.avgCost,0) : '--'}</td>
         <td>${src}</td>
       </tr>`;
     }).join('');
@@ -1211,38 +1238,41 @@ function renderDashboard() {
 
 // ── RENDER WATCHLIST ─────────────────────────────────────────────
 function renderWatchlist(filter='') {
-  // Deduplicate by symbol (keep last occurrence)
-  const seen = new Set();
-  const dedupWL = [...D.watchlist].reverse().filter(i => { if(seen.has(i.symbol)) return false; seen.add(i.symbol); return true; }).reverse();
+  // Only symbols from active orders + positions (deduplicated)
+  const activeSyms = [...new Set([
+    ...D.orders.filter(o => o.status !== 'cancelled').map(o => o.symbol),
+    ...D.positions.map(p => p.symbol),
+    ...D.watchlist.map(w => w.symbol)  // include manually added watchlist items
+  ])];
+  const seenWL = new Set();
+  const dedupWL = activeSyms
+    .filter(sym => { if(seenWL.has(sym)) return false; seenWL.add(sym); return true; })
+    .map(sym => D.watchlist.find(w => w.symbol === sym) || { symbol: sym, name: '', altUp: 0, altDn: 0, targetBuy: 0, targetSell: 0, id: sym });
   const list = filter ? dedupWL.filter(i => i.symbol.includes(filter.toUpperCase()) || (i.name||'').toLowerCase().includes(filter.toLowerCase())) : dedupWL;
   const tb = $('tbWL');
   if (!tb) return;
-  if (!list.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Chưa có mã nào.</td></tr>'; return; }
-
-  // Add select-all header
-  const thead = tb.closest('table')?.querySelector('thead tr');
-  if (thead && !thead.querySelector('.th-cb')) {
-    const th = document.createElement('th');
-    th.className = 'th-cb';
-    th.innerHTML = '<input type="checkbox" onchange="toggleSelectAll(\'cbWL\',this)" style="cursor:pointer;accent-color:var(--cyan)">';
-    thead.prepend(th);
-  }
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="10" class="empty">Chưa có mã nào.</td></tr>'; return; }
 
   tb.innerHTML = list.map(item => {
     const p = PC[item.symbol] || {};
     const hp = p.price && p.price > 0;
     const cls = hp && p.changePct != null ? clr(p.changePct) : 'neu';
+    const pos = D.positions.find(pt => pt.symbol === item.symbol);
+    const activeOrds = D.orders.filter(o => o.symbol === item.symbol && o.status === 'pending').length;
+    const filledOrds = D.orders.filter(o => o.symbol === item.symbol && o.status === 'filled').length;
     return `<tr>
-      <td style="width:32px"><input type="checkbox" class="cbWL" data-id="${item.id}" onchange="updateDeleteBtn('cbWL')" style="cursor:pointer;accent-color:var(--cyan)"></td>
+      <td style="width:32px"><input type="checkbox" class="cbWL" data-id="${item.id||item.symbol}" onchange="updateDeleteBtn('cbWL')" style="cursor:pointer;accent-color:var(--cyan)"></td>
       <td><span class="sym">${item.symbol}</span>${item.name?`<div style="font-size:.63rem;color:var(--t2)">${item.name}</div>`:''}</td>
-      <td class="${cls}" style="font-weight:700">${hp ? fN(p.price,0) : '--'}</td>
+      <td class="${cls}" style="font-weight:700">${hp ? fN(p.price,0) : '<span style="color:var(--t2)">--</span>'}</td>
       <td class="${cls}">${hp && p.changePct!=null ? fP(p.changePct) : '--'}</td>
-      <td>${item.targetBuy ? fN(item.targetBuy,0) : '--'}</td>
-      <td>${item.targetSell ? fN(item.targetSell,0) : '--'}</td>
-      <td style="color:var(--t2)">${item.altUp||0}% / ${item.altDn||0}%</td>
+      <td style="color:var(--t2)">${pos ? '<span style="color:var(--cyan);font-weight:700">'+fN(pos.quantity)+'</span> cổ' : '--'}</td>
+      <td style="color:var(--t2)">${pos ? fN(pos.avgCost,0) : '--'}</td>
+      <td>${item.targetBuy ? '<span style="color:var(--green)">'+fN(item.targetBuy,0)+'</span>' : '--'}</td>
+      <td>${item.targetSell ? '<span style="color:var(--red)">'+fN(item.targetSell,0)+'</span>' : '--'}</td>
+      <td style="color:var(--t2);font-size:.7rem">${activeOrds>0?'<span style="color:var(--yellow)">'+activeOrds+' chờ</span>':''} ${filledOrds>0?filledOrds+' khớp':''}</td>
       <td style="display:flex;gap:4px">
-        <button class="btn btn-s btn-sm" onclick="editWL('${item.id}')"><i class="fas fa-edit"></i></button>
-        <button class="btn btn-d btn-sm" onclick="delWL('${item.id}')"><i class="fas fa-trash"></i></button>
+        <button class="btn btn-s btn-sm" onclick="editWL('${item.id||item.symbol}')"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-d btn-sm" onclick="delWL('${item.id||item.symbol}')"><i class="fas fa-trash"></i></button>
       </td>
     </tr>`;
   }).join('');
@@ -1309,6 +1339,7 @@ function renderPortfolio() {
         const pnl = (sp-bp)*qty-fee, pct = bp > 0 ? (sp-bp)/bp*100 : 0;
         totalHL += pnl;
         return `<tr>
+          <td style="width:32px"><input type="checkbox" class="cbHT" data-id="${ht.id}" onchange="updateDeleteBtn('cbHT')" style="cursor:pointer;accent-color:var(--cyan)"></td>
           <td><span class="sym">${ht.symbol}</span></td>
           <td>${fN(qty)}</td><td>${fN(bp,0)}</td><td>${fN(sp,0)}</td>
           <td class="${clr(pnl)}" style="font-weight:700">${fM(pnl)}</td>
@@ -2010,6 +2041,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Start
     render();
+    makeCardsClickable();
     refreshPrices();
     startTimer();
     if (cfg.gsUrl) syncFromGS();
@@ -2093,6 +2125,124 @@ function deleteSelected(checkboxClass, table) {
 function startTimer() {
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(refreshPrices, (cfg.refInt||5)*60000);
+}
+
+// ── DETAIL MODALS (click on summary cards) ────────────────────
+function showDetail(type) {
+  const stats = portfolioStats();
+  let title = '', html = '';
+
+  if (type === 'mv' || type === 'unr') {
+    title = 'Chi tiết Danh mục đầu tư';
+    const rows = D.positions.map(pos => {
+      const p = PC[pos.symbol] || {};
+      const hp = p.price && p.price > 0;
+      const avg = Number(pos.avgCost)||0, qty = Number(pos.quantity)||0;
+      const mv = hp ? p.price*qty : 0, cost = avg*qty;
+      const pnl = hp ? mv-cost : null, pct = hp&&avg>0 ? (p.price-avg)/avg*100 : null;
+      const cls = pnl!=null ? clr(pnl) : 'neu';
+      const nm = pos.name || D.watchlist.find(w=>w.symbol===pos.symbol)?.name || '';
+      return `<tr>
+        <td><span class="sym">${pos.symbol}</span>${nm?`<div style="font-size:.63rem;color:var(--t2)">${nm}</div>`:''}</td>
+        <td>${fN(qty)}</td><td>${fN(avg,0)}</td>
+        <td>${hp?fN(p.price,0):'--'}</td>
+        <td>${hp?fM(mv):'--'}</td>
+        <td class="${cls}" style="font-weight:700">${pnl!=null?fM(pnl):'--'}</td>
+        <td class="${cls}">${pct!=null?fP(pct):'--'}</td>
+      </tr>`;
+    }).join('');
+    html = `<div style="margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:var(--inp);border-radius:6px;padding:10px"><div style="font-size:.65rem;color:var(--t2);margin-bottom:3px">TỔNG VỐN ĐẦU TƯ</div><div style="font-size:1rem;font-weight:700">${fM(stats.totalCost)}</div></div>
+        <div style="background:var(--inp);border-radius:6px;padding:10px"><div style="font-size:.65rem;color:var(--t2);margin-bottom:3px">GIÁ TRỊ THỊ TRƯỜNG</div><div style="font-size:1rem;font-weight:700">${fM(stats.totalMV)}</div></div>
+        <div style="background:var(--inp);border-radius:6px;padding:10px"><div style="font-size:.65rem;color:var(--t2);margin-bottom:3px">L/L CHƯA THỰC HIỆN</div><div class="${clr(stats.unrealized)}" style="font-size:1rem;font-weight:700">${fM(stats.unrealized)} ${stats.totalCost>0?'('+fP(stats.unrealized/stats.totalCost*100)+')':''}</div></div>
+        <div style="background:var(--inp);border-radius:6px;padding:10px"><div style="font-size:.65rem;color:var(--t2);margin-bottom:3px">L/L ĐÃ THỰC HIỆN</div><div class="${clr(stats.realizedPnl)}" style="font-size:1rem;font-weight:700">${fM(stats.realizedPnl)}</div></div>
+      </div>
+      <p style="font-size:.72rem;color:var(--t2);margin-bottom:8px"><strong>Vị thế đang nắm:</strong></p>
+      <div class="tscroll"><table class="dtb"><thead><tr><th>Mã</th><th>SL</th><th>Giá vốn</th><th>Giá TT</th><th>GT TT</th><th>L/L</th><th>%</th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="empty">Chưa có vị thế</td></tr>'}</tbody></table></div>
+    </div>`;
+  }
+  else if (type === 'real') {
+    title = 'Chi tiết Lãi/Lỗ đã thực hiện';
+    // From orders
+    const sorted = [...D.orders].sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
+    const sellRows = sorted.filter(o=>o.type==='sell'&&o.status==='filled').map(o=>{
+      const p = pnlOfOrder(o)||0, ab = Number(o.avgBuyPrice||0)||avgBuy(o.symbol,o.id);
+      const fp = Number(o.fillPrice||o.orderPrice||0), pct = ab>0?(fp-ab)/ab*100:null;
+      const cls = clr(p);
+      return `<tr><td><span class="sym">${o.symbol}</span></td><td style="color:var(--t2);font-size:.7rem">${(o.time||'').slice(0,10)}</td><td>${fN(fp,0)}</td><td>${fN(o.quantity)}</td><td class="${cls}" style="font-weight:700">${fM(p)}</td><td class="${cls}">${pct!=null?fP(pct):'--'}</td></tr>`;
+    }).join('');
+    // From histTrades
+    const htRows = D.histTrades.map(ht=>{
+      const qty=Number(ht.quantity||0),bp=Number(ht.buyPrice||0),sp=Number(ht.sellPrice||0),fee=Number(ht.fee||0);
+      const p=(sp-bp)*qty-fee, pct=bp>0?(sp-bp)/bp*100:0;
+      return `<tr><td><span class="sym">${ht.symbol}</span></td><td style="color:var(--t2);font-size:.7rem">${(ht.date||'').slice(0,10)}</td><td>${fN(sp,0)}</td><td>${fN(qty)}</td><td class="${clr(p)}" style="font-weight:700">${fM(p)}</td><td class="${clr(p)}">${fP(pct)}</td></tr>`;
+    }).join('');
+    html = `<div>
+      <div style="background:var(--inp);border-radius:6px;padding:10px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.75rem;color:var(--t2)">Tổng L/L đã thực hiện</span>
+        <span class="${clr(stats.realizedPnl)}" style="font-size:1.1rem;font-weight:700">${fM(stats.realizedPnl)}</span>
+      </div>
+      ${sellRows?`<p style="font-size:.72rem;color:var(--t2);margin-bottom:6px"><strong>Từ lệnh bán (${D.orders.filter(o=>o.type==='sell'&&o.status==='filled').length} lệnh):</strong></p>
+      <div class="tscroll" style="margin-bottom:12px"><table class="dtb"><thead><tr><th>Mã</th><th>Ngày</th><th>Giá bán</th><th>KL</th><th>L/L</th><th>%</th></tr></thead><tbody>${sellRows}</tbody></table></div>`:''}
+      ${htRows?`<p style="font-size:.72rem;color:var(--t2);margin-bottom:6px"><strong>Từ giao dịch cũ (${D.histTrades.length} GD):</strong></p>
+      <div class="tscroll"><table class="dtb"><thead><tr><th>Mã</th><th>Ngày</th><th>Giá bán</th><th>KL</th><th>L/L</th><th>%</th></tr></thead><tbody>${htRows}</tbody></table></div>`:''}
+      ${!sellRows&&!htRows?'<div class="empty">Chưa có giao dịch bán nào</div>':''}
+    </div>`;
+  }
+  else if (type === 'wlcount') {
+    title = 'Danh sách mã theo dõi';
+    const activeSyms2 = [...new Set([...D.orders.filter(o=>o.status!=='cancelled').map(o=>o.symbol), ...D.positions.map(p=>p.symbol)])];
+    const rows2 = activeSyms2.map(sym => {
+      const p = PC[sym]||{}, wli = D.watchlist.find(w=>w.symbol===sym)||{};
+      const hp = p.price && p.price > 0, cls = hp&&p.changePct!=null?clr(p.changePct):'neu';
+      const orders = D.orders.filter(o=>o.symbol===sym&&o.status!=='cancelled');
+      const pos = D.positions.find(pt=>pt.symbol===sym);
+      return `<tr>
+        <td><span class="sym">${sym}</span>${wli.name?`<div style="font-size:.63rem;color:var(--t2)">${wli.name}</div>`:''}</td>
+        <td class="${cls}" style="font-weight:700">${hp?fN(p.price,0):'--'}</td>
+        <td class="${cls}">${hp&&p.changePct!=null?fP(p.changePct):'--'}</td>
+        <td style="color:var(--t2)">${pos?fN(pos.quantity)+' cổ phiếu':'--'}</td>
+        <td style="color:var(--t2)">${orders.length} lệnh</td>
+      </tr>`;
+    }).join('');
+    html = `<div class="tscroll"><table class="dtb"><thead><tr><th>Mã</th><th>Giá TT</th><th>%</th><th>Đang nắm</th><th>Lệnh</th></tr></thead><tbody>${rows2||'<tr><td colspan="5" class="empty">Chưa có mã nào</td></tr>'}</tbody></table></div>`;
+  }
+
+  if (!html) return;
+  $('detailTitle').textContent = title;
+  $('detailBody').innerHTML = html;
+  openModal('detailModal');
+}
+
+// Make summary cards clickable
+function makeCardsClickable() {
+  // Dashboard cards
+  [['dMV','mv'],['dUnr','unr'],['dReal','real'],['dWL','wlcount']].forEach(([id,type]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const card = el.closest('.scard');
+    if (card) {
+      card.style.cursor = 'pointer';
+      card.style.transition = 'background .15s';
+      card.onmouseenter = () => card.style.background = 'var(--hov)';
+      card.onmouseleave = () => card.style.background = '';
+      card.onclick = () => showDetail(type);
+    }
+  });
+  // Portfolio cards
+  [['ptUnr','unr'],['ptReal','real'],['ptCost','mv'],['ptMV','mv']].forEach(([id,type]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const card = el.closest('.scard');
+    if (card) {
+      card.style.cursor = 'pointer';
+      card.style.transition = 'background .15s';
+      card.onmouseenter = () => card.style.background = 'var(--hov)';
+      card.onmouseleave = () => card.style.background = '';
+      card.onclick = () => showDetail(type);
+    }
+  });
 }
 </script>
 </body>
