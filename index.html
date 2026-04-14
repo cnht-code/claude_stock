@@ -11,7 +11,7 @@
 <style>
 :root {
   --bg:#07090f;--surf:#0d1117;--card:#111827;--inp:#0a0e16;--hov:#161e2e;--side:#080b11;
-  --t1:#e2e8f5;--t2:#7a8899;--tm:#3d4a5c;
+  --t1:#e2e8f5;--t2:#7a8899;--tm:#5a6a80;
   --bdr:#1a2535;--bdr2:#263347;
   --cyan:#00d4ff;--green:#00e676;--red:#ff4757;--orange:#ff9f43;--purple:#a855f7;--yellow:#ffd32a;
   --sw:240px;--th:54px;--mono:'JetBrains Mono',monospace;--head:'Syne',sans-serif;
@@ -270,6 +270,7 @@ canvas{display:block}
     <div class="page" id="page-watchlist">
       <div class="pa">
         <button class="btn btn-p" id="btnAddWL"><i class="fas fa-plus"></i> Thêm mã</button>
+        <button class="btn btn-d btn-sm" id="btnDelSelWL" style="display:none" onclick="deleteSelected('cbWL','watchlist')">Xoá 0 dòng</button>
         <input type="text" id="wlSearch" placeholder="🔍 Tìm mã..." style="padding:7px 11px;background:var(--inp);color:var(--t1);border:1px solid var(--bdr);border-radius:6px;font-family:var(--mono);font-size:.78rem;outline:none;min-width:140px"/>
       </div>
       <div class="card"><div class="tscroll"><table class="dtb"><thead><tr><th>Mã / Tên</th><th>Giá TT</th><th>%</th><th>Giá mua MT</th><th>Giá bán MT</th><th>Alert ±</th><th>Thao tác</th></tr></thead><tbody id="tbWL"><tr><td colspan="7" class="empty">Chưa có mã nào.</td></tr></tbody></table></div></div>
@@ -280,7 +281,7 @@ canvas{display:block}
       <div class="pa">
         <button class="btn btn-p" id="btnAddPos"><i class="fas fa-plus"></i> Thêm vị thế</button>
         <button class="btn btn-s" id="btnAddHT"><i class="fas fa-history"></i> Thêm GD cũ</button>
-        <label class="file-btn"><i class="fas fa-file-import"></i> Import Excel<input type="file" id="impPosXL" accept=".xlsx,.xls"/></label>
+        <button class="btn btn-d btn-sm" id="btnDelSelPos" style="display:none" onclick="deleteSelected('cbPos','positions')">Xoá 0 dòng</button>
       </div>
       <div class="grd">
         <div class="card scard"><div class="ci g"><i class="fas fa-wallet"></i></div><div><div class="cl">Tổng vốn đầu tư</div><div class="cv" id="ptCost">--</div></div></div>
@@ -290,7 +291,7 @@ canvas{display:block}
       </div>
       <div class="card">
         <div class="card-hdr"><h3><i class="fas fa-briefcase"></i> Vị thế đang nắm</h3></div>
-        <div class="tscroll"><table class="dtb"><thead><tr><th>Mã / Tên</th><th>SL</th><th>Giá vốn TB</th><th>Giá TT</th><th>GT thị trường</th><th>Lãi/Lỗ</th><th>% L/L</th><th>Thao tác</th></tr></thead><tbody id="tbPos"><tr><td colspan="8" class="empty">Chưa có vị thế nào.</td></tr></tbody></table></div>
+        <div class="tscroll"><table class="dtb"><thead><tr><th style="width:32px"><input type="checkbox" onchange="toggleSelectAll('cbPos',this)" style="cursor:pointer;accent-color:var(--cyan)"></th><th>Mã / Tên</th><th>SL</th><th>Giá vốn TB</th><th>Giá TT</th><th>GT thị trường</th><th>Lãi/Lỗ</th><th>% L/L</th><th>Thao tác</th></tr></thead><tbody id="tbPos"><tr><td colspan="8" class="empty">Chưa có vị thế nào.</td></tr></tbody></table></div>
       </div>
       <div class="card">
         <div class="card-hdr"><h3><i class="fas fa-chart-pie"></i> Phân bổ danh mục</h3></div>
@@ -309,6 +310,7 @@ canvas{display:block}
         <button class="btn btn-r" id="btnSell"><i class="fas fa-arrow-down"></i> Đặt lệnh Bán</button>
         <label class="file-btn"><i class="fas fa-file-import"></i> Import Excel<input type="file" id="impOrdXL" accept=".xlsx,.xls"/></label>
         <button class="btn btn-d btn-sm" id="btnReset"><i class="fas fa-undo"></i> Reset</button>
+        <button class="btn btn-d btn-sm" id="btnDelSelOrd" style="display:none" onclick="deleteSelected('cbOrd','orders')">Xoá 0 dòng</button>
         <select id="ordFilt" style="padding:7px 9px;background:var(--inp);color:var(--t1);border:1px solid var(--bdr);border-radius:6px;font-family:var(--mono);font-size:.76rem;cursor:pointer">
           <option value="all">Tất cả</option><option value="pending">Chờ khớp</option>
           <option value="filled">Đã khớp</option><option value="cancelled">Đã huỷ</option>
@@ -321,7 +323,7 @@ canvas{display:block}
       </div>
       <div class="card">
         <div class="card-hdr"><h3><i class="fas fa-exchange-alt"></i> Nhật ký lệnh</h3><span class="badge-info">Giả lập + theo dõi</span></div>
-        <div class="tscroll"><table class="dtb"><thead><tr><th>Ngày</th><th>Mã</th><th>Loại</th><th>Giá đặt</th><th>KL đặt</th><th>KL đang có</th><th>Giá khớp</th><th>Trạng thái</th><th>Lãi/Lỗ</th><th>% L/L</th><th>Thao tác</th></tr></thead><tbody id="tbOrd"><tr><td colspan="11" class="empty">Chưa có lệnh nào.</td></tr></tbody></table></div>
+        <div class="tscroll"><table class="dtb"><thead><tr><th style="width:32px"><input type="checkbox" onchange="toggleSelectAll('cbOrd',this)" style="cursor:pointer;accent-color:var(--cyan)"></th><th>Ngày</th><th>Mã</th><th>Loại</th><th>Giá đặt</th><th>KL đặt</th><th>KL đang có</th><th>Giá khớp</th><th>Trạng thái</th><th>Lãi/Lỗ</th><th>% L/L</th><th>Thao tác</th></tr></thead><tbody id="tbOrd"><tr><td colspan="11" class="empty">Chưa có lệnh nào.</td></tr></tbody></table></div>
       </div>
     </div>
 
@@ -503,14 +505,40 @@ canvas{display:block}
 <!-- Position Modal -->
 <div class="modal" id="posModal">
   <div class="mbg" onclick="closeModal('posModal')"></div>
-  <div class="mbox">
+  <div class="mbox" style="max-width:540px">
     <div class="mhdr"><h3 id="posTitle">Thêm vị thế</h3><button class="ibtn" onclick="closeModal('posModal')"><i class="fas fa-times"></i></button></div>
     <div class="mbody">
-      <input type="hidden" id="posId"/>
-      <div class="fg"><label>Mã CK *</label><input type="text" id="posSym" class="upper" maxlength="10"/></div>
-      <div class="frow">
-        <div class="fg"><label>Số lượng *</label><input type="number" id="posQty"/></div>
-        <div class="fg"><label>Giá vốn TB (VND) *</label><input type="number" id="posAvg"/></div>
+      <div style="display:flex;border:1px solid var(--bdr);border-radius:6px;overflow:hidden;margin-bottom:12px">
+        <button id="posTab1" class="btn btn-p" style="flex:1;border-radius:0;padding:7px" onclick="posTab(1)">✏️ Thủ công</button>
+        <button id="posTab2" class="btn btn-s" style="flex:1;border-radius:0;padding:7px" onclick="posTab(2)">📋 Nhiều dòng</button>
+      </div>
+      <!-- Tab 1 -->
+      <div id="posPane1">
+        <input type="hidden" id="posId"/>
+        <div class="fg"><label>Mã CK *</label><input type="text" id="posSym" class="upper" maxlength="10"/></div>
+        <div class="frow">
+          <div class="fg"><label>Số lượng *</label><input type="number" id="posQty" min="0"/></div>
+          <div class="fg"><label>Giá vốn TB (VND) *</label><input type="number" id="posAvg" min="0"/></div>
+        </div>
+        <div class="fg"><label>Ghi chú</label><input type="text" id="posNote" placeholder="Tùy chọn..."/></div>
+      </div>
+      <!-- Tab 2: nhiều dòng -->
+      <div id="posPane2" style="display:none">
+        <div style="background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.15);border-radius:6px;padding:10px;margin-bottom:10px;font-size:.72rem;color:var(--t2);line-height:1.8">
+          <strong style="color:var(--cyan)">Format mỗi dòng:</strong> <code style="color:var(--green)">MÃ  SỐ_LƯỢNG  GIÁ_VỐN</code><br>
+          Giá &lt; 1000 → tự nhân 1000 (nghìn đồng)<br>
+          <strong>Ví dụ:</strong><code style="color:var(--t1);display:block;margin-top:4px">FPT  1000  127000<br>VNM  500  70000<br>HPG  2000  24</code>
+        </div>
+        <div class="fg"><label>Nhập danh sách</label>
+          <textarea id="posMText" style="min-height:100px;font-family:var(--mono)" placeholder="FPT  1000  127000&#10;VNM  500  70000"></textarea>
+        </div>
+        <div id="posMPrev" style="display:none;margin-top:8px">
+          <div id="posMInfo" style="font-size:.72rem;color:var(--cyan);margin-bottom:5px"></div>
+          <div class="tscroll" style="max-height:140px;overflow-y:auto;border:1px solid var(--bdr);border-radius:6px">
+            <table class="dtb"><thead><tr><th>Mã</th><th>SL</th><th>Giá vốn TB</th><th>GT ước tính</th></tr></thead><tbody id="tbPosPrev"></tbody></table>
+          </div>
+        </div>
+        <button class="btn btn-s" style="width:100%;margin-top:8px" id="btnPrevPos"><i class="fas fa-eye"></i> Xem trước</button>
       </div>
     </div>
     <div class="mfoot"><button class="btn btn-s" onclick="closeModal('posModal')">Huỷ</button><button class="btn btn-p" id="btnSavePos">Lưu</button></div>
@@ -1150,16 +1178,19 @@ function renderDashboard() {
   // Table
   const tb = $('tbDash');
   if (!tb) return;
-  if (!D.watchlist.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Thêm mã ở Danh mục quan tâm</td></tr>'; }
+  // Deduplicate watchlist for display
+  const seenDash = new Set();
+  const dashWL = [...D.watchlist].reverse().filter(i => { if(seenDash.has(i.symbol)) return false; seenDash.add(i.symbol); return true; }).reverse();
+  if (!dashWL.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Thêm mã ở Danh mục quan tâm</td></tr>'; }
   else {
-    tb.innerHTML = D.watchlist.map(item => {
+    tb.innerHTML = dashWL.map(item => {
       const p = PC[item.symbol] || {};
       const hp = p.price && p.price > 0;
       const cls = hp && p.changePct != null ? clr(p.changePct) : 'neu';
       const src = p.source === 'SIM' ? '<span style="color:var(--tm);font-size:.68rem">~Sim</span>'
                 : p.source ? `<span style="color:var(--green);font-size:.68rem">✓${p.source}</span>` : '--';
       return `<tr>
-        <td><span class="sym">${item.symbol}</span>${item.name?`<div style="font-size:.63rem;color:var(--tm)">${item.name}</div>`:''}</td>
+        <td><span class="sym">${item.symbol}</span>${item.name?`<div style="font-size:.63rem;color:var(--t2)">${item.name}</div>`:''}</td>
         <td style="font-weight:700">${hp ? fN(p.price,0) : '<span style="color:var(--tm)">--</span>'}</td>
         <td class="${cls}">${hp && p.change!=null ? (p.change>=0?'+':'')+fN(p.change,0) : '--'}</td>
         <td class="${cls}">${hp && p.changePct!=null ? fP(p.changePct) : '--'}</td>
@@ -1180,21 +1211,35 @@ function renderDashboard() {
 
 // ── RENDER WATCHLIST ─────────────────────────────────────────────
 function renderWatchlist(filter='') {
-  const list = filter ? D.watchlist.filter(i => i.symbol.includes(filter.toUpperCase()) || (i.name||'').toLowerCase().includes(filter.toLowerCase())) : D.watchlist;
+  // Deduplicate by symbol (keep last occurrence)
+  const seen = new Set();
+  const dedupWL = [...D.watchlist].reverse().filter(i => { if(seen.has(i.symbol)) return false; seen.add(i.symbol); return true; }).reverse();
+  const list = filter ? dedupWL.filter(i => i.symbol.includes(filter.toUpperCase()) || (i.name||'').toLowerCase().includes(filter.toLowerCase())) : dedupWL;
   const tb = $('tbWL');
   if (!tb) return;
-  if (!list.length) { tb.innerHTML = '<tr><td colspan="7" class="empty">Chưa có mã nào.</td></tr>'; return; }
+  if (!list.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Chưa có mã nào.</td></tr>'; return; }
+
+  // Add select-all header
+  const thead = tb.closest('table')?.querySelector('thead tr');
+  if (thead && !thead.querySelector('.th-cb')) {
+    const th = document.createElement('th');
+    th.className = 'th-cb';
+    th.innerHTML = '<input type="checkbox" onchange="toggleSelectAll(\'cbWL\',this)" style="cursor:pointer;accent-color:var(--cyan)">';
+    thead.prepend(th);
+  }
+
   tb.innerHTML = list.map(item => {
     const p = PC[item.symbol] || {};
     const hp = p.price && p.price > 0;
     const cls = hp && p.changePct != null ? clr(p.changePct) : 'neu';
     return `<tr>
-      <td><span class="sym">${item.symbol}</span>${item.name?`<div style="font-size:.63rem;color:var(--tm)">${item.name}</div>`:''}</td>
+      <td style="width:32px"><input type="checkbox" class="cbWL" data-id="${item.id}" onchange="updateDeleteBtn('cbWL')" style="cursor:pointer;accent-color:var(--cyan)"></td>
+      <td><span class="sym">${item.symbol}</span>${item.name?`<div style="font-size:.63rem;color:var(--t2)">${item.name}</div>`:''}</td>
       <td class="${cls}" style="font-weight:700">${hp ? fN(p.price,0) : '--'}</td>
       <td class="${cls}">${hp && p.changePct!=null ? fP(p.changePct) : '--'}</td>
       <td>${item.targetBuy ? fN(item.targetBuy,0) : '--'}</td>
       <td>${item.targetSell ? fN(item.targetSell,0) : '--'}</td>
-      <td style="color:var(--tm)">${item.altUp||0}% / ${item.altDn||0}%</td>
+      <td style="color:var(--t2)">${item.altUp||0}% / ${item.altDn||0}%</td>
       <td style="display:flex;gap:4px">
         <button class="btn btn-s btn-sm" onclick="editWL('${item.id}')"><i class="fas fa-edit"></i></button>
         <button class="btn btn-d btn-sm" onclick="delWL('${item.id}')"><i class="fas fa-trash"></i></button>
@@ -1217,7 +1262,7 @@ function renderPortfolio() {
   // Positions
   const tb = $('tbPos');
   if (tb) {
-    if (!D.positions.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Chưa có vị thế nào.</td></tr>'; }
+    if (!D.positions.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">Chưa có vị thế nào.</td></tr>'; }
     else {
       tb.innerHTML = D.positions.map(pos => {
         const p = PC[pos.symbol] || {};
@@ -1232,7 +1277,8 @@ function renderPortfolio() {
         const nm  = pos.name || D.watchlist.find(w => w.symbol === pos.symbol)?.name || '';
         const src = (p.source && p.source !== 'SIM') ? `<span style="font-size:.62rem;color:var(--green)"> ✓${p.source}</span>` : '';
         return `<tr>
-          <td><span class="sym">${pos.symbol}</span>${nm?`<div style="font-size:.63rem;color:var(--tm)">${nm}</div>`:''}</td>
+          <td style="width:32px"><input type="checkbox" class="cbPos" data-id="${pos.id}" onchange="updateDeleteBtn('cbPos')" style="cursor:pointer;accent-color:var(--cyan)"></td>
+          <td><span class="sym">${pos.symbol}</span>${nm?`<div style="font-size:.63rem;color:var(--t2)">${nm}</div>`:''}</td>
           <td style="font-weight:700">${fN(qty)}</td>
           <td>${fN(avg,2)}</td>
           <td>${hp ? fN(mp,0)+src : '<span style="color:var(--tm)">--</span>'}</td>
@@ -1299,8 +1345,9 @@ function renderOrders() {
     const curQty = D.positions.find(p => p.symbol === o.symbol)?.quantity || 0;
     const stMap = {pending:`<span style="color:var(--yellow)">⏳</span>`,filled:`<span style="color:var(--green)">✅</span>`,cancelled:`<span style="color:var(--tm)">❌</span>`};
     return `<tr>
-      <td style="color:var(--tm);font-size:.68rem">${dt}</td>
-      <td><span class="sym">${o.symbol}</span>${nm?`<div style="font-size:.62rem;color:var(--tm)">${nm}</div>`:''}</td>
+      <td style="width:32px"><input type="checkbox" class="cbOrd" data-id="${o.id}" onchange="updateDeleteBtn('cbOrd')" style="cursor:pointer;accent-color:var(--cyan)"></td>
+      <td style="color:var(--t2);font-size:.68rem">${dt}</td>
+      <td><span class="sym">${o.symbol}</span>${nm?`<div style="font-size:.62rem;color:var(--t2)">${nm}</div>`:''}</td>
       <td><span class="${o.type==='buy'?'tag-b':'tag-s'}">${o.type==='buy'?'▲MUA':'▼BÁN'}</span></td>
       <td>${fN(o.orderPrice,0)}</td>
       <td>${fN(o.quantity)}</td>
@@ -1382,7 +1429,12 @@ async function drawPriceChart(sym) {
   const lgd = $('chartLgd'); if (lgd) lgd.innerHTML = '<span>⏳ Đang tải...</span>';
   const days = parseInt(($('chartDays')||{}).value || '365');
   let bars = [];
-  if (cfg.gsUrl) bars = await gasCall({action:'getHistory', symbol:sym, days}) || [];
+  if (cfg.gsUrl) {
+    try {
+      const res = await fetch(cfg.gsUrl + '?action=getHistory&symbol=' + sym + '&days=' + days + '&_t=' + Date.now(), {signal: AbortSignal.timeout(30000)});
+      if (res.ok) { const j = await res.json(); bars = (j.ok && Array.isArray(j.data)) ? j.data : []; }
+    } catch(e) { console.warn('getHistory:', e.message); bars = []; }
+  }
   if (!bars.length) {
     if (lgd) lgd.innerHTML = cfg.gsUrl ? '<span style="color:var(--orange)">⚠ GAS chưa trả lịch sử (kiểm tra deploy v5)</span>' : '<span style="color:var(--tm)">Cần cài GAS để xem lịch sử</span>';
     return;
@@ -1657,11 +1709,11 @@ async function confirmImp() {
     await gasReplace('positions', D.positions);
     await gasReplace('watchlist', D.watchlist);
   }
+  const importedCount = pendingImp.length;
   await refreshPrices();
   cancelImp();
   if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Xác nhận'; }
-  toast(`✅ Import ${pendingImp.length} lệnh thành công!`,'ok',5000);
-  pendingImp = [];
+  toast(`✅ Import ${importedCount} lệnh thành công!`,'ok',5000);
 }
 function cancelImp() { pendingImp=[]; const p=$('impPreview'); if(p) p.style.display='none'; const f=$('impOrdXL'); if(f) f.value=''; }
 
@@ -1802,11 +1854,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Portfolio
     $('btnAddPos').addEventListener('click', () => {
-      $('posTitle').textContent = 'Thêm vị thế thủ công';
-      ['posId','posSym','posQty','posAvg'].forEach(id => { const el=$(id); if(el) el.value=''; });
-      openModal('posModal');
+      $('posTitle').textContent = 'Thêm vị thế';
+      ['posId','posSym','posQty','posAvg','posNote'].forEach(id => { const el=$(id); if(el) el.value=''; });
+      const pm=$('posMText'); if(pm) pm.value='';
+      const pp=$('posMPrev'); if(pp) pp.style.display='none';
+      pendingPosRows=[];
+      posTab(1); openModal('posModal');
     });
+    $('btnPrevPos')?.addEventListener('click', previewPosMulti);
     $('btnSavePos').addEventListener('click', async () => {
+      const isMulti = $('posPane2')?.style.display !== 'none';
+      if (isMulti) {
+        if (!pendingPosRows.length) { previewPosMulti(); return; }
+        for (const p of pendingPosRows) { saveRec('positions', p); await ensureWL(p.symbol); }
+        closeModal('posModal'); toast('Đã lưu '+pendingPosRows.length+' vị thế','ok',4000);
+        pendingPosRows=[]; await refreshPrices(); render(); return;
+      }
       const sym = ($('posSym').value||'').trim().toUpperCase();
       const qty = parseInt($('posQty').value||0);
       const avg = parseFloat($('posAvg').value||0);
@@ -1816,7 +1879,7 @@ document.addEventListener('DOMContentLoaded', function() {
       closeModal('posModal'); toast('Đã lưu vị thế '+sym,'ok');
       await refreshPrices(); render();
     });
-    $('impPosXL').addEventListener('change', e => { handlePosXL(e.target.files[0]); e.target.value=''; });
+    // (impPosXL removed)
 
     // Hist Trades
     $('btnAddHT').addEventListener('click', () => {
@@ -1834,7 +1897,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const isMulti = $('htPane2')?.style.display !== 'none';
       if (isMulti) {
         if (!pendingHT.length) { previewHT(); return; }
-        for (const ht of pendingHT) { ht.id = uid(); saveRec('histTrades', ht); await ensureWL(ht.symbol); }
+        for (const ht of pendingHT) { ht.id = uid(); saveRec('histTrades', ht); }
         closeModal('htModal'); toast('Đã lưu '+pendingHT.length+' GD cũ','ok',4000); pendingHT=[]; render();
         return;
       }
@@ -1844,7 +1907,6 @@ document.addEventListener('DOMContentLoaded', function() {
       const sp   = parseFloat($('htSell').value||0);
       if (!sym||!qty||!bp||!sp) { toast('Điền đủ Mã, KL, Giá mua, Giá bán','wn'); return; }
       saveRec('histTrades', {id:($('htId').value)||undefined, symbol:sym, quantity:qty, buyPrice:bp, sellPrice:sp, fee:parseFloat($('htFee').value||0), date:$('htDate').value||tod(), note:$('htNote').value||''});
-      await ensureWL(sym);
       closeModal('htModal'); toast('Đã lưu GD cũ','ok'); render();
     });
 
@@ -1961,6 +2023,72 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 });
+
+// ── POSITION TAB SWITCH ───────────────────────────────────────
+let pendingPosRows = [];
+function posTab(n) {
+  [$('posPane1'),$('posPane2')].forEach((el,i) => { if(el) el.style.display = i===n-1 ? '' : 'none'; });
+  [$('posTab1'),$('posTab2')].forEach((el,i) => {
+    if (!el) return;
+    el.className = i===n-1 ? 'btn btn-p' : 'btn btn-s';
+    el.style.borderRadius='0'; el.style.padding='7px';
+  });
+}
+function previewPosMulti() {
+  const txt = ($('posMText')||{}).value?.trim();
+  if (!txt) { toast('Nhập dữ liệu','wn'); return; }
+  pendingPosRows = []; const rows = []; let errs = 0;
+  txt.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line => {
+    const p = line.split(/[\s,;]+/).filter(Boolean);
+    if (p.length < 3) { errs++; return; }
+    const sym = p[0].toUpperCase(), qty = parseInt(p[1].replace(/[.,]/g,'')), avg0 = parseFloat(p[2].replace(/[.,]/g,''));
+    const avg = avg0 < 1000 ? avg0*1000 : avg0;
+    if (!sym||!qty||!avg) { errs++; return; }
+    const mv = (PC[sym]?.price||avg)*qty;
+    rows.push({sym,qty,avg,mv});
+    pendingPosRows.push({symbol:sym, quantity:qty, avgCost:avg, manualEntry:true, addedAt:now()});
+  });
+  if (errs) toast(errs+' dòng lỗi, bỏ qua','wn');
+  if (!rows.length) { toast('Không có dữ liệu hợp lệ','er'); return; }
+  const mi=$('posMInfo'); if(mi) mi.textContent=rows.length+' vị thế';
+  const tb=$('tbPosPrev');
+  if(tb) tb.innerHTML=rows.map(r=>`<tr><td><span class="sym">${r.sym}</span></td><td>${fN(r.qty)}</td><td>${fN(r.avg,0)}</td><td>${fM(r.mv)}</td></tr>`).join('');
+  const pp=$('posMPrev'); if(pp) pp.style.display='';
+}
+
+// ── MULTI-SELECT DELETE ───────────────────────────────────────
+// Add checkbox column support for tables with data-selectable
+function getSelectedIds(checkboxClass) {
+  return [...document.querySelectorAll(`.${checkboxClass}:checked`)].map(cb => cb.dataset.id);
+}
+
+function toggleSelectAll(checkboxClass, masterCb) {
+  document.querySelectorAll(`.${checkboxClass}`).forEach(cb => cb.checked = masterCb.checked);
+  updateDeleteBtn(checkboxClass);
+}
+
+function updateDeleteBtn(checkboxClass) {
+  const count = document.querySelectorAll(`.${checkboxClass}:checked`).length;
+  const btnId = {
+    'cbWL':'btnDelSelWL', 'cbPos':'btnDelSelPos',
+    'cbOrd':'btnDelSelOrd', 'cbHT':'btnDelSelHT'
+  }[checkboxClass];
+  const btn = $(btnId);
+  if (btn) {
+    btn.style.display = count > 0 ? '' : 'none';
+    btn.textContent = `Xoá ${count} dòng`;
+  }
+}
+
+function deleteSelected(checkboxClass, table) {
+  const ids = getSelectedIds(checkboxClass);
+  if (!ids.length) return;
+  if (!confirm(`Xoá ${ids.length} dòng đã chọn?`)) return;
+  ids.forEach(id => { D[table] = D[table].filter(r => r.id !== id); if(cfg.gsUrl) gasCall({action:'delete',sheet:table,id}).catch(()=>{}); });
+  saveData();
+  if (table === 'orders' || table === 'positions') rebuildPositions();
+  render(); updateBadges(); toast(`Đã xoá ${ids.length} dòng`,'ok');
+}
 
 function startTimer() {
   if (refreshTimer) clearInterval(refreshTimer);
