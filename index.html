@@ -373,6 +373,7 @@ canvas{display:block}
           <div style="display:flex;gap:8px;align-items:center">
             <button class="btn btn-p" id="btnSaveGs"><i class="fas fa-save"></i> Lưu</button>
             <button class="btn btn-s" id="btnTestGs"><i class="fas fa-plug"></i> Test kết nối</button>
+            <button class="btn btn-s" id="btnTestPrice"><i class="fas fa-chart-line"></i> Test giá FPT</button>
           </div>
           <div id="gsStatus" style="margin-top:8px;font-size:.72rem;color:var(--tm)"></div>
         </div></div>
@@ -1872,10 +1873,48 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         const res = await fetch(url+'?action=ping&_t='+Date.now(), {signal:AbortSignal.timeout(10000)});
         const j   = await res.json();
-        if (j.ok && j.data) { if(st) st.innerHTML = `<span style="color:var(--green)">✅ OK! v${j.data.ver||'?'} | ${j.data.name||''}</span>`; toast('Kết nối thành công!','ok'); }
-        else throw new Error(j.error||'Unknown');
-      } catch(e) { if(st) st.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`; toast('Lỗi: '+e.message,'er'); }
+        if (j.ok && j.data) {
+          if(st) st.innerHTML = '<span style="color:var(--green)">✅ v'+j.data.ver+' | '+j.data.name+'</span>';
+          toast('Kết nối OK!','ok');
+        } else throw new Error(j.error||'Unknown');
+      } catch(e) {
+        if(st) st.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+        toast('Lỗi: '+e.message,'er');
+      }
     });
+
+    $('btnTestPrice')?.addEventListener('click', async () => {
+      const url = ($('gsUrl').value||cfg.gsUrl||'').trim();
+      if (!url) { toast('Nhập URL GAS trước','wn'); return; }
+      const st = $('gsStatus');
+      if(st) st.innerHTML = '⏳ Test đang chạy...';
+      try {
+        // Test getPrice
+        const t1 = Date.now();
+        const r1 = await fetch(url+'?action=getPrice&symbols=FPT&_t='+Date.now(), {signal:AbortSignal.timeout(20000)});
+        const j1 = await r1.json();
+        const ms1 = Date.now()-t1;
+        const priceOk = j1.ok && j1.data && j1.data.FPT && j1.data.FPT.price > 0;
+        let out = '<div style="margin-top:6px;font-size:.72rem">';
+        out += priceOk
+          ? '<div style="color:var(--green)">✅ getPrice OK ('+ms1+'ms) — FPT: '+Math.round(j1.data.FPT.price||0)+' đ, %: '+((j1.data.FPT.changePct||0).toFixed(2))+'%</div>'
+          : '<div style="color:var(--red)">❌ getPrice lỗi ('+ms1+'ms): '+(j1.error||JSON.stringify(j1).slice(0,80))+'</div>';
+        // Test getHistory
+        const t2 = Date.now();
+        const r2 = await fetch(url+'?action=getHistory&symbol=FPT&days=10&_t='+Date.now(), {signal:AbortSignal.timeout(30000)});
+        const j2 = await r2.json();
+        const ms2 = Date.now()-t2;
+        const bars = Array.isArray(j2.data) ? j2.data : [];
+        out += bars.length > 0
+          ? '<div style="color:var(--green);margin-top:4px">✅ getHistory OK ('+ms2+'ms) — '+bars.length+' bars, mới nhất: '+bars[bars.length-1].date+' giá '+Math.round(bars[bars.length-1].close||0)+'</div>'
+          : '<div style="color:var(--red);margin-top:4px">❌ getHistory lỗi ('+ms2+'ms): '+(j2.error||JSON.stringify(j2).slice(0,80))+'</div>';
+        out += '</div>';
+        if(st) st.innerHTML = out;
+        if(priceOk) toast('GAS hoạt động tốt!','ok');
+      } catch(e) {
+        if(st) st.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
+      }
+    })
     $('btnSaveTg').addEventListener('click', () => { cfg.tgToken=($('tgToken').value||'').trim(); cfg.tgChat=($('tgChat').value||'').trim(); saveCfg(); toast('Đã lưu Telegram','ok'); });
     $('btnTestTg').addEventListener('click', async () => {
       const t=($('tgToken').value||'').trim(), c=($('tgChat').value||'').trim();
@@ -2020,57 +2059,81 @@ function showDetail(type) {
   }
   else if (type === 'real') {
     title = 'Chi tiết Lãi/Lỗ đã thực hiện';
-    // From orders
-    const sorted = [...D.orders].sort((a,b)=>new Date(b.time||0)-new Date(a.time||0));
-    const sellRows = sorted.filter(o=>o.type==='sell'&&o.status==='filled').map(o=>{
-      const p = pnlOfOrder(o)||0, ab = Number(o.avgBuyPrice||0)||avgBuy(o.symbol,o.id);
-      const fp = Number(o.fillPrice||o.orderPrice||0), pct = ab>0?(fp-ab)/ab*100:null;
-      const cls = clr(p);
-      return `<tr><td><span class="sym">${o.symbol}</span></td><td style="color:var(--t2);font-size:.7rem">${(o.time||'').slice(0,10)}</td><td>${fN(fp,0)}</td><td>${fN(o.quantity)}</td><td class="${cls}" style="font-weight:700">${fM(p)}</td><td class="${cls}">${pct!=null?fP(pct):'--'}</td></tr>`;
-    }).join('');
-    // From histTrades
-    const htRows = D.histTrades.map(ht=>{
+
+    // Pre-compute everything (no IIFE, no nested template literals)
+    const allSells = [...D.orders]
+      .sort((a,b)=>new Date(a.time||0)-new Date(b.time||0))
+      .filter(o=>o.type==='sell'&&o.status==='filled');
+
+    let totalCostBase=0, totalGainVal=0, tradeCount=0;
+    allSells.forEach(o=>{
+      const ab=Number(o.avgBuyPrice||0)||avgBuy(o.symbol,o.id);
+      const fp=Number(o.fillPrice||o.orderPrice||0), qty=Number(o.quantity||0);
+      if(ab>0&&fp>0&&qty>0){totalCostBase+=ab*qty;totalGainVal+=fp*qty;tradeCount++;}
+    });
+    D.histTrades.forEach(ht=>{
+      const bp=Number(ht.buyPrice||0),sp=Number(ht.sellPrice||0),qty=Number(ht.quantity||0);
+      if(bp>0&&sp>0&&qty>0){totalCostBase+=bp*qty;totalGainVal+=sp*qty;tradeCount++;}
+    });
+    const avgPct    = totalCostBase>0 ? (totalGainVal-totalCostBase)/totalCostBase*100 : null;
+    const avgPctStr = avgPct!=null ? fP(avgPct) : '--';
+    const avgPctCls = avgPct!=null ? clr(avgPct) : 'neu';
+    const realCls   = clr(stats.realizedPnl);
+
+    // Build row HTML using string concat (safe, no nesting issues)
+    let sellRowsHtml = '';
+    allSells.forEach(o=>{
+      const p=pnlOfOrder(o)||0, ab=Number(o.avgBuyPrice||0)||avgBuy(o.symbol,o.id);
+      const fp=Number(o.fillPrice||o.orderPrice||0), pct=ab>0?(fp-ab)/ab*100:null;
+      const cls=clr(p);
+      sellRowsHtml += '<tr>'
+        +'<td><span class="sym">'+o.symbol+'</span></td>'
+        +'<td style="color:var(--t2);font-size:.7rem">'+(o.time||'').slice(0,10)+'</td>'
+        +'<td>'+fN(fp,0)+'</td><td>'+fN(o.quantity)+'</td>'
+        +'<td class="'+cls+'" style="font-weight:700">'+fM(p)+'</td>'
+        +'<td class="'+cls+'">'+(pct!=null?fP(pct):'--')+'</td></tr>';
+    });
+    let htRowsHtml = '';
+    D.histTrades.forEach(ht=>{
       const qty=Number(ht.quantity||0),bp=Number(ht.buyPrice||0),sp=Number(ht.sellPrice||0),fee=Number(ht.fee||0);
       const p=(sp-bp)*qty-fee, pct=bp>0?(sp-bp)/bp*100:0;
-      return `<tr><td><span class="sym">${ht.symbol}</span></td><td style="color:var(--t2);font-size:.7rem">${(ht.date||'').slice(0,10)}</td><td>${fN(sp,0)}</td><td>${fN(qty)}</td><td class="${clr(p)}" style="font-weight:700">${fM(p)}</td><td class="${clr(p)}">${fP(pct)}</td></tr>`;
-    }).join('');
-    html = `<div>
-      (() => {
-        // Calculate avg % across all realized trades
-        const allSells = D.orders.filter(o=>o.type==='sell'&&o.status==='filled');
-        const allHT = D.histTrades;
-        let totalCostBase = 0, totalGain = 0, tradeCount = 0;
-        allSells.forEach(o => {
-          const ab = Number(o.avgBuyPrice||0)||avgBuy(o.symbol,o.id);
-          const fp = Number(o.fillPrice||o.orderPrice||0);
-          if(ab>0&&fp>0){ totalCostBase+=ab*Number(o.quantity||0); totalGain+=fp*Number(o.quantity||0); tradeCount++; }
-        });
-        allHT.forEach(ht => {
-          const bp=Number(ht.buyPrice||0),sp=Number(ht.sellPrice||0),qty=Number(ht.quantity||0);
-          if(bp>0&&sp>0){ totalCostBase+=bp*qty; totalGain+=sp*qty; tradeCount++; }
-        });
-        const avgPct = totalCostBase>0 ? (totalGain-totalCostBase)/totalCostBase*100 : null;
-        const avgPctStr = avgPct!=null ? fP(avgPct) : '--';
-        const avgPctCls = avgPct!=null ? clr(avgPct) : 'neu';
-        return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">'
-          + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
-          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:3px">TỔNG L/L ĐÃ THỰC HIỆN</div>'
-          + '<div class="' + clr(stats.realizedPnl) + '" style="font-size:1rem;font-weight:700">' + fM(stats.realizedPnl) + '</div></div>'
-          + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
-          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:3px">% TB (CẢ DANH MỤC)</div>'
-          + '<div class="' + avgPctCls + '" style="font-size:1rem;font-weight:700">' + avgPctStr + '</div></div>'
-          + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
-          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:3px">SỐ GIAO DỊCH BÁN</div>'
-          + '<div style="font-size:1rem;font-weight:700">' + tradeCount + '</div></div>'
-          + '</div>';
-      })()
-      ${sellRows?`<p style="font-size:.72rem;color:var(--t2);margin-bottom:6px"><strong>Từ lệnh bán (${D.orders.filter(o=>o.type==='sell'&&o.status==='filled').length} lệnh):</strong></p>
-      <div class="tscroll" style="margin-bottom:12px"><table class="dtb"><thead><tr><th>Mã</th><th>Ngày</th><th>Giá bán</th><th>KL</th><th>L/L</th><th>%</th></tr></thead><tbody>${sellRows}</tbody></table></div>`:''}
-      ${htRows?`<p style="font-size:.72rem;color:var(--t2);margin-bottom:6px"><strong>Từ giao dịch cũ (${D.histTrades.length} GD):</strong></p>
-      <div class="tscroll"><table class="dtb"><thead><tr><th>Mã</th><th>Ngày</th><th>Giá bán</th><th>KL</th><th>L/L</th><th>%</th></tr></thead><tbody>${htRows}</tbody></table></div>`:''}
-      ${!sellRows&&!htRows?'<div class="empty">Chưa có giao dịch bán nào</div>':''}
-    </div>`;
+      const cls=clr(p);
+      htRowsHtml += '<tr>'
+        +'<td><span class="sym">'+ht.symbol+'</span></td>'
+        +'<td style="color:var(--t2);font-size:.7rem">'+(ht.date||'').slice(0,10)+'</td>'
+        +'<td>'+fN(sp,0)+'</td><td>'+fN(qty)+'</td>'
+        +'<td class="'+cls+'" style="font-weight:700">'+fM(p)+'</td>'
+        +'<td class="'+cls+'">'+fP(pct)+'</td></tr>';
+    });
+    const tblHead = '<table class="dtb"><thead><tr><th>Mã</th><th>Ngày</th><th>Giá bán</th><th>KL</th><th>L/L</th><th>%</th></tr></thead><tbody>';
+
+    html = '<div>'
+      // Summary cards
+      + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">'
+        + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
+          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:4px">TỔNG L/L ĐÃ THỰC HIỆN</div>'
+          + '<div class="'+realCls+'" style="font-size:1rem;font-weight:700">'+fM(stats.realizedPnl)+'</div></div>'
+        + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
+          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:4px">% LÃI TB</div>'
+          + '<div class="'+avgPctCls+'" style="font-size:1rem;font-weight:700">'+avgPctStr+'</div></div>'
+        + '<div style="background:var(--inp);border-radius:6px;padding:10px">'
+          + '<div style="font-size:.63rem;color:var(--t2);margin-bottom:4px">SỐ GD BÁN</div>'
+          + '<div style="font-size:1rem;font-weight:700">'+tradeCount+'</div></div>'
+      + '</div>'
+      // Sell orders table
+      + (sellRowsHtml
+        ? '<p style="font-size:.72rem;color:var(--t2);margin-bottom:6px"><strong>Từ lệnh bán ('+allSells.length+'):</strong></p>'
+          + '<div class="tscroll" style="margin-bottom:12px">'+tblHead+sellRowsHtml+'</tbody></table></div>'
+        : '')
+      // HistTrades table
+      + (htRowsHtml
+        ? '<p style="font-size:.72rem;color:var(--t2);margin-bottom:6px"><strong>Từ GD cũ ('+D.histTrades.length+'):</strong></p>'
+          + '<div class="tscroll">'+tblHead+htRowsHtml+'</tbody></table></div>'
+        : '')
+      + (!sellRowsHtml&&!htRowsHtml ? '<div class="empty">Chưa có giao dịch bán nào</div>' : '')
+      + '</div>';
   }
+
   else if (type === 'wlcount') {
     title = 'Danh sách mã theo dõi';
     const activeSyms2 = [...new Set([...D.orders.filter(o=>o.status!=='cancelled').map(o=>o.symbol), ...D.positions.map(p=>p.symbol)])];
