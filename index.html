@@ -382,9 +382,16 @@ canvas{display:block}
           <div class="card-hdr" style="padding:0 0 10px;margin-bottom:12px"><h3><i class="fab fa-telegram"></i> Telegram Bot</h3></div>
           <div class="fg"><label>Bot Token</label><div style="display:flex;gap:6px"><input type="password" id="tgToken" placeholder="1234567890:ABC..."/><button class="btn btn-s btn-sm" id="btnShowTok"><i class="fas fa-eye"></i></button></div><div class="hint">Tạo tại <a href="https://t.me/BotFather" target="_blank">@BotFather</a></div></div>
           <div class="fg"><label>Chat ID</label><input type="text" id="tgChat" placeholder="-100xxxxxxxxx"/><div class="hint">Lấy tại <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a></div></div>
-          <div style="display:flex;gap:8px">
+          <div style="background:var(--inp);border-radius:6px;padding:9px 11px;margin-bottom:10px;font-size:.72rem;color:var(--t2);line-height:1.7">
+            <strong style="color:var(--cyan)">Tính năng:</strong><br>
+            🔔 Cảnh báo giá vượt ngưỡng tự động<br>
+            📊 Báo cáo <strong>7:00</strong> và <strong>16:00</strong> hàng ngày (so sánh 1/3/7 ngày)<br>
+            💬 Nhắn tin tra cứu: <code>/help /dm /bc /ls /gia FPT</code>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-p" id="btnSaveTg"><i class="fas fa-save"></i> Lưu</button>
             <button class="btn btn-s" id="btnTestTg"><i class="fas fa-paper-plane"></i> Gửi test</button>
+            <button class="btn btn-s" id="btnSendReport"><i class="fas fa-chart-bar"></i> Gửi báo cáo ngay</button>
           </div>
         </div></div>
         <div class="card"><div class="card-body">
@@ -646,7 +653,7 @@ canvas{display:block}
 // ================================================================
 
 // ── GAS SCRIPT CODE (embedded for copy) ────────────────────────
-const GAS_CODE = "// VN Stock Tracker \u2014 Apps Script v13\n// Entrade API: resolution=1D, VNI for VNINDEX index\n// RULE: fetchEntrade returns RAW values (no *1000)\n//       getPrice multiplies *1000 for stocks\n//       getHistory multiplies *1000 for stocks\n//       getIndexBySymbol does NOT multiply (index points are already correct)\n\nvar VER = 15;\nfunction doGet(e)  { return handle(e); }\nfunction doPost(e) { return handle(e); }\nfunction testAuth() {\n  var r = UrlFetchApp.fetch('https://httpbin.org/get', {muteHttpExceptions:true});\n  Logger.log('OK: ' + r.getResponseCode());\n}\n\nfunction handle(e) {\n  try {\n    var p = e.parameter || {};\n    var body = {};\n    if (e.postData && e.postData.contents) { try { body = JSON.parse(e.postData.contents); } catch(_) {} }\n    var all = Object.assign({}, body, p);\n    var act = all.action;\n    var ss  = SpreadsheetApp.getActiveSpreadsheet();\n\n    if (act === 'ping') return ok({ver:VER, name:ss.getName()});\n\n    if (act === 'testEndpoint') {\n      var sym = (all.symbol||'FPT').toUpperCase();\n      var to = Math.floor(Date.now()/1000), fr = to-10*86400;\n      var res = {};\n      var tests = [\n        ['stock_FPT',  'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=FPT&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_VNI',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=VNI&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_HNX',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=HNX&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_HNXI',   'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=HNXI&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_UPCOM',  'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=UPCOM&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_UPC',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=UPC&from='+fr+'&to='+to+'&resolution=1D'],\n      ];\n      for (var i=0; i<tests.length; i++) {\n        try {\n          var r = UrlFetchApp.fetch(tests[i][1], {muteHttpExceptions:true, headers:{'User-Agent':'Mozilla/5.0'}});\n          var code = r.getResponseCode();\n          var txt = r.getContentText();\n          var j = null; try { j = JSON.parse(txt); } catch(_) {}\n          var hasData = (code===200 && j && j.t && Array.isArray(j.t) && j.t.length>0 && j.t[0]!==null);\n          var lastC = hasData ? j.c[j.c.length-1] : null;\n          var sample = hasData ? ('bars:'+j.t.length+' close:'+lastC) : txt.slice(0,80);\n          res[tests[i][0]] = {code:code, hasData:hasData, sample:sample};\n        } catch(ex) { res[tests[i][0]] = {code:0, hasData:false, sample:ex.message.slice(0,60)}; }\n      }\n      return ok(res);\n    }\n\n    if (act === 'getPrice') {\n      var syms = String(all.symbols||'').toUpperCase().split(',').map(function(s){return s.trim();}).filter(Boolean);\n      var out = {};\n      syms.forEach(function(s) { var d = getPrice(s); if(d) out[s] = d; });\n      return ok(out);\n    }\n    if (act === 'getIndex') {\n      return ok({\n        VNINDEX: getIndexByCode('VNINDEX'),\n        HNX:     getIndexByCode('HNX'),\n        UPCOM:   getIndexByCode('UPCOM')\n      });\n    }\n    if (act === 'getHistory') {\n      var sym2 = String(all.symbol||'').toUpperCase().trim();\n      var days = parseInt(all.days||365);\n      return ok(getStockHistory(sym2, days));\n    }\n    if (act === 'getCompanyName') {\n      var sym3 = String(all.symbol||'').toUpperCase().trim();\n      return ok({name: getCompanyName(sym3)});\n    }\n\n    var sh = all.sheet;\n    if (act === 'getAll') {\n      var s = getOrCreate(ss, sh);\n      var v = s.getDataRange().getValues();\n      if (v.length <= 1) return ok([]);\n      var h = v[0].map(function(x){return String(x).trim();});\n      return ok(v.slice(1).map(function(row){\n        var o={}; h.forEach(function(k,i){o[k]=(row[i]===''||row[i]==null)?null:row[i];}); return o;\n      }).filter(function(row){return Object.values(row).some(function(x){return x!=null&&x!=='';}); }));\n    }\n    if (act==='upsert')     { upsert(getOrCreate(ss,sh), body.record||JSON.parse(all.record||'{}')); return ok({saved:true}); }\n    if (act==='delete')     { delRow(getOrCreate(ss,sh), all.id); return ok({deleted:true}); }\n    if (act==='replaceAll') { repAll(getOrCreate(ss,sh), body.records||(all.records?JSON.parse(all.records):[])); return ok({replaced:true}); }\n    return ok({error:'Unknown: '+act});\n  } catch(err) {\n    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\n// \u2500\u2500 CORE: fetchRaw \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Returns RAW Entrade values. NO multiplication.\n// Stock prices: ~127.5 (means 127,500 VND - must *1000 in caller)\n// Index values: ~1200 (already in correct points unit)\nfunction fetchRaw(sym, days) {\n  try {\n    var to = Math.floor(Date.now()/1000);\n    var fr = to - (days + 60) * 86400;\n    var r = UrlFetchApp.fetch(\n      'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol='+sym+'&from='+fr+'&to='+to+'&resolution=1D',\n      {muteHttpExceptions:true, headers:{'User-Agent':'Mozilla/5.0'}}\n    );\n    if (r.getResponseCode() !== 200) return [];\n    var j = JSON.parse(r.getContentText());\n    var t=j.t||[], c=j.c||[], o=j.o||[], h=j.h||[], l=j.l||[], v=j.v||[];\n    if (!t.length || t[0]===null) return [];\n    var result = [];\n    for (var i=0; i<t.length; i++) {\n      if (!t[i] || c[i]===null || c[i]===undefined) continue;\n      var close = parseFloat(c[i]);\n      if (close <= 0) continue;\n      result.push({\n        date:   new Date(t[i]*1000).toISOString().slice(0,10),\n        open:   parseFloat(o[i]||c[i]),\n        high:   parseFloat(h[i]||c[i]),\n        low:    parseFloat(l[i]||c[i]),\n        close:  close,\n        volume: parseInt(v[i]||0)\n      });\n    }\n    return result.slice(-days);\n  } catch(e) { return []; }\n}\n\n// \u2500\u2500 STOCK PRICE (returns VND) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getPrice(sym) {\n  var bars = fetchRaw(sym, 5);\n  if (!bars.length) return null;\n  var last = bars[bars.length-1];\n  var prev = bars.length >= 2 ? bars[bars.length-2] : last;\n  // Raw close is in thousands: 127.5 -> multiply to get VND: 127500\n  var price = last.close * 1000;\n  var ref   = prev.close * 1000;\n  if (price < 100) return null;\n  return {\n    price:     price,\n    ref:       ref,\n    change:    price - ref,\n    changePct: ref ? (price-ref)/ref*100 : 0,\n    volume:    last.volume,\n    source:    'Entrade',\n    date:      last.date\n  };\n}\n\n// \u2500\u2500 STOCK HISTORY (returns VND - multiplied *1000) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getStockHistory(sym, days) {\n  // Try Entrade first (up to ~6 months)\n  var raw = fetchRaw(sym, days);\n  // If we need more and got less than expected, try SSI iboard\n  var expectedBars = Math.floor(days * 5/7);\n  if (raw.length < expectedBars * 0.7) {\n    var ssi = fetchSSIHistory(sym, days);\n    if (ssi.length > raw.length) raw = ssi;\n  }\n  if (!raw.length) return [];\n  return raw.map(function(b) {\n    return {\n      date:   b.date,\n      open:   b.open  * 1000,\n      high:   b.high  * 1000,\n      low:    b.low   * 1000,\n      close:  b.close * 1000,\n      volume: b.volume\n    };\n  }).slice(-days);\n}\n\nfunction fetchSSIHistory(sym, days) {\n  try {\n    var to = Math.floor(Date.now()/1000);\n    var fr = to - (days + 60) * 86400;\n    var r = UrlFetchApp.fetch(\n      'https://iboard.ssi.com.vn/dchart/api/history?resolution=D&ticker='+sym+'&from='+fr+'&to='+to,\n      {muteHttpExceptions:true, headers:{\n        'Referer':'https://iboard.ssi.com.vn/',\n        'Origin':'https://iboard.ssi.com.vn',\n        'User-Agent':'Mozilla/5.0'\n      }}\n    );\n    if (r.getResponseCode() !== 200) return [];\n    var j = JSON.parse(r.getContentText());\n    var t=j.t||[], c2=j.c||[], o=j.o||[], h=j.h||[], l=j.l||[], v=j.v||[];\n    if (!t.length || j.s === 'no_data') return [];\n    var result = [];\n    for (var i=0; i<t.length; i++) {\n      if (!t[i] || !c2[i]) continue;\n      var close = parseFloat(c2[i]);\n      if (close <= 0) continue;\n      result.push({\n        date:   new Date(t[i]*1000).toISOString().slice(0,10),\n        open:   parseFloat(o[i]||c2[i]),\n        high:   parseFloat(h[i]||c2[i]),\n        low:    parseFloat(l[i]||c2[i]),\n        close:  close,\n        volume: parseInt(v[i]||0)\n      });\n    }\n    return result;\n  } catch(e) { return []; }\n}\n\n// \u2500\u2500 INDEX (raw values = index points, NO *1000) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// VNI confirmed working, HNX/UPCOM symbols TBD\nvar IDX_CANDIDATES = {\n  'VNINDEX': ['VNI', 'VN-INDEX', 'VNINDEX', 'VN30'],\n  'HNX':     ['HNX', 'HNXI', 'HNX30', 'HNXINDEX'],\n  'UPCOM':   ['UPC', 'UPCOM', 'UPCOMINDEX']\n};\nfunction getIndexByCode(code) {\n  var candidates = IDX_CANDIDATES[code] || [code];\n  for (var ci=0; ci<candidates.length; ci++) {\n    var raw = fetchRaw(candidates[ci], 3);\n    if (!raw.length) continue;\n    var last = raw[raw.length-1];\n    var prev = raw.length >= 2 ? raw[raw.length-2] : last;\n    if (last.close <= 0) continue;\n    // Index values from Entrade are already in points (e.g. 1247.5)\n    // NO multiplication needed\n    return {\n      price:     last.close,\n      ref:       prev.close || last.close,\n      change:    last.close - (prev.close||last.close),\n      changePct: prev.close ? (last.close-prev.close)/prev.close*100 : 0\n    };\n  }\n  return null;\n}\n\n// \u2500\u2500 COMPANY NAME \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getCompanyName(sym) {\n  try {\n    var r = UrlFetchApp.fetch(\n      'https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/'+sym+'/overview',\n      {muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'}}\n    );\n    if (r.getResponseCode()===200) {\n      var j = JSON.parse(r.getContentText());\n      return j.companyName||j.shortName||'';\n    }\n  } catch(e) {}\n  return '';\n}\n\n// \u2500\u2500 HELPERS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction ok(data){return ContentService.createTextOutput(JSON.stringify({ok:true,data:data})).setMimeType(ContentService.MimeType.JSON);}\nfunction getOrCreate(ss,name){if(!name)throw new Error('Sheet name required');return ss.getSheetByName(name)||ss.insertSheet(name);}\nfunction repAll(sh,rows){sh.clearContents();if(!rows||!rows.length)return;var keys=Object.keys(rows[0]);sh.appendRow(keys);rows.forEach(function(r){sh.appendRow(keys.map(function(k){return r[k]==null?'':r[k];}));});}\nfunction upsert(sh,rec){var all=sh.getDataRange().getValues();var hdrs=all.length?all[0].map(function(h){return String(h).trim();}):[]; var newK=Object.keys(rec).filter(function(k){return !hdrs.includes(k);});if(newK.length){hdrs=hdrs.concat(newK);if(all.length)sh.getRange(1,1,1,hdrs.length).setValues([hdrs]);else{sh.appendRow(hdrs);return upsert(sh,rec);}}var ic=hdrs.indexOf('id'),row=-1;if(ic>=0&&rec.id!=null)for(var i=1;i<all.length;i++)if(String(all[i][ic])===String(rec.id)){row=i+1;break;}var rd=hdrs.map(function(h){return rec[h]==null?'':rec[h];});if(row>0)sh.getRange(row,1,1,hdrs.length).setValues([rd]);else sh.appendRow(rd);}\nfunction delRow(sh,id){var all=sh.getDataRange().getValues();if(all.length<=1)return;var ic=all[0].map(function(h){return String(h).trim();}).indexOf('id');if(ic<0)return;for(var i=all.length-1;i>=1;i--)if(String(all[i][ic])===String(id)){sh.deleteRow(i+1);return;}}\n";
+const GAS_CODE = "// VN Stock Tracker \u2014 Apps Script v13\n// Entrade API: resolution=1D, VNI for VNINDEX index\n// RULE: fetchEntrade returns RAW values (no *1000)\n//       getPrice multiplies *1000 for stocks\n//       getHistory multiplies *1000 for stocks\n//       getIndexBySymbol does NOT multiply (index points are already correct)\n\nvar VER = 16;\nfunction doGet(e)  { return handle(e); }\nfunction doPost(e) { return handle(e); }\nfunction testAuth() {\n  var r = UrlFetchApp.fetch('https://httpbin.org/get', {muteHttpExceptions:true});\n  Logger.log('OK: ' + r.getResponseCode());\n}\n\nfunction handle(e) {\n  try {\n    var p = e.parameter || {};\n    var body = {};\n    if (e.postData && e.postData.contents) { try { body = JSON.parse(e.postData.contents); } catch(_) {} }\n    var all = Object.assign({}, body, p);\n    var act = all.action;\n    var ss  = SpreadsheetApp.getActiveSpreadsheet();\n\n    if (act === 'ping') return ok({ver:VER, name:ss.getName()});\n\n    if (act === 'testEndpoint') {\n      var sym = (all.symbol||'FPT').toUpperCase();\n      var to = Math.floor(Date.now()/1000), fr = to-10*86400;\n      var res = {};\n      var tests = [\n        ['stock_FPT',  'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=FPT&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_VNI',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=VNI&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_HNX',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=HNX&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_HNXI',   'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=HNXI&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_UPCOM',  'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=UPCOM&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_UPC',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=UPC&from='+fr+'&to='+to+'&resolution=1D'],\n      ];\n      for (var i=0; i<tests.length; i++) {\n        try {\n          var r = UrlFetchApp.fetch(tests[i][1], {muteHttpExceptions:true, headers:{'User-Agent':'Mozilla/5.0'}});\n          var code = r.getResponseCode();\n          var txt = r.getContentText();\n          var j = null; try { j = JSON.parse(txt); } catch(_) {}\n          var hasData = (code===200 && j && ((j.t && Array.isArray(j.t) && j.t.length>0 && j.t[0]!==null) || (j.c && Array.isArray(j.c) && j.c.length>0 && j.c[0]!==null)));\n          var lastC = hasData ? j.c[j.c.length-1] : null;\n          var sample = hasData ? ('bars:'+j.t.length+' close:'+lastC) : txt.slice(0,80);\n          res[tests[i][0]] = {code:code, hasData:hasData, sample:sample};\n        } catch(ex) { res[tests[i][0]] = {code:0, hasData:false, sample:ex.message.slice(0,60)}; }\n      }\n      return ok(res);\n    }\n\n    if (act === 'getPrice') {\n      var syms = String(all.symbols||'').toUpperCase().split(',').map(function(s){return s.trim();}).filter(Boolean);\n      var out = {};\n      syms.forEach(function(s) { var d = getPrice(s); if(d) out[s] = d; });\n      return ok(out);\n    }\n    if (act === 'getIndex') {\n      return ok({\n        VNINDEX: getIndexByCode('VNINDEX'),\n        HNX:     getIndexByCode('HNX'),\n        UPCOM:   getIndexByCode('UPCOM')\n      });\n    }\n    if (act === 'getHistory') {\n      var sym2 = String(all.symbol||'').toUpperCase().trim();\n      var days = parseInt(all.days||365);\n      return ok(getStockHistory(sym2, days));\n    }\n    if (act === 'getCompanyName') {\n      var sym3 = String(all.symbol||'').toUpperCase().trim();\n      return ok({name: getCompanyName(sym3)});\n    }\n\n    var sh = all.sheet;\n    if (act === 'getAll') {\n      var s = getOrCreate(ss, sh);\n      var v = s.getDataRange().getValues();\n      if (v.length <= 1) return ok([]);\n      var h = v[0].map(function(x){return String(x).trim();});\n      return ok(v.slice(1).map(function(row){\n        var o={}; h.forEach(function(k,i){o[k]=(row[i]===''||row[i]==null)?null:row[i];}); return o;\n      }).filter(function(row){return Object.values(row).some(function(x){return x!=null&&x!=='';}); }));\n    }\n    if (act==='upsert')     { upsert(getOrCreate(ss,sh), body.record||JSON.parse(all.record||'{}')); return ok({saved:true}); }\n    if (act==='delete')     { delRow(getOrCreate(ss,sh), all.id); return ok({deleted:true}); }\n    if (act==='replaceAll') { repAll(getOrCreate(ss,sh), body.records||(all.records?JSON.parse(all.records):[])); return ok({replaced:true}); }\n    return ok({error:'Unknown: '+act});\n  } catch(err) {\n    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\n// \u2500\u2500 CORE: fetchRaw \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Returns RAW Entrade values. NO multiplication.\n// Stock prices: ~127.5 (means 127,500 VND - must *1000 in caller)\n// Index values: ~1200 (already in correct points unit)\nfunction fetchRaw(sym, days) {\n  try {\n    var to = Math.floor(Date.now()/1000);\n    var fr = to - (days + 60) * 86400;\n    var r = UrlFetchApp.fetch(\n      'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol='+sym+'&from='+fr+'&to='+to+'&resolution=1D',\n      {muteHttpExceptions:true, headers:{'User-Agent':'Mozilla/5.0'}}\n    );\n    if (r.getResponseCode() !== 200) return [];\n    var j = JSON.parse(r.getContentText());\n    var t=j.t||[], c=j.c||[], o=j.o||[], h=j.h||[], l=j.l||[], v=j.v||[];\n    // Handle case where t has nulls but c has data\n    if (!t.length && !c.length) return [];\n    if (t.length && t[0]===null && c.length && c[0]!==null) {\n      // Use index-based dates\n      var baseTs = Math.floor(Date.now()/1000) - c.length*86400;\n      for(var ii=0;ii<c.length;ii++) t[ii] = baseTs + ii*86400;\n    }\n    if (!t.length || t[0]===null) return [];\n    var result = [];\n    for (var i=0; i<t.length; i++) {\n      if (!t[i] || c[i]===null || c[i]===undefined) continue;\n      var close = parseFloat(c[i]);\n      if (close <= 0) continue;\n      result.push({\n        date:   new Date(t[i]*1000).toISOString().slice(0,10),\n        open:   parseFloat(o[i]||c[i]),\n        high:   parseFloat(h[i]||c[i]),\n        low:    parseFloat(l[i]||c[i]),\n        close:  close,\n        volume: parseInt(v[i]||0)\n      });\n    }\n    return result.slice(-days);\n  } catch(e) { return []; }\n}\n\n// \u2500\u2500 STOCK PRICE (returns VND) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getPrice(sym) {\n  var bars = fetchRaw(sym, 5);\n  if (!bars.length) return null;\n  var last = bars[bars.length-1];\n  var prev = bars.length >= 2 ? bars[bars.length-2] : last;\n  // Raw close is in thousands: 127.5 -> multiply to get VND: 127500\n  var price = last.close * 1000;\n  var ref   = prev.close * 1000;\n  if (price < 100) return null;\n  return {\n    price:     price,\n    ref:       ref,\n    change:    price - ref,\n    changePct: ref ? (price-ref)/ref*100 : 0,\n    volume:    last.volume,\n    source:    'Entrade',\n    date:      last.date\n  };\n}\n\n// \u2500\u2500 STOCK HISTORY (returns VND - multiplied *1000) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getStockHistory(sym, days) {\n  // Try Entrade first (up to ~6 months)\n  var raw = fetchRaw(sym, days);\n  // If we need more and got less than expected, try SSI iboard\n  var expectedBars = Math.floor(days * 5/7);\n  if (raw.length < expectedBars * 0.7) {\n    var ssi = fetchSSIHistory(sym, days);\n    if (ssi.length > raw.length) raw = ssi;\n  }\n  if (!raw.length) return [];\n  return raw.map(function(b) {\n    return {\n      date:   b.date,\n      open:   b.open  * 1000,\n      high:   b.high  * 1000,\n      low:    b.low   * 1000,\n      close:  b.close * 1000,\n      volume: b.volume\n    };\n  }).slice(-days);\n}\n\nfunction fetchSSIHistory(sym, days) {\n  try {\n    var to = Math.floor(Date.now()/1000);\n    var fr = to - (days + 60) * 86400;\n    var r = UrlFetchApp.fetch(\n      'https://iboard.ssi.com.vn/dchart/api/history?resolution=D&ticker='+sym+'&from='+fr+'&to='+to,\n      {muteHttpExceptions:true, headers:{\n        'Referer':'https://iboard.ssi.com.vn/',\n        'Origin':'https://iboard.ssi.com.vn',\n        'User-Agent':'Mozilla/5.0'\n      }}\n    );\n    if (r.getResponseCode() !== 200) return [];\n    var j = JSON.parse(r.getContentText());\n    var t=j.t||[], c2=j.c||[], o=j.o||[], h=j.h||[], l=j.l||[], v=j.v||[];\n    if (!t.length || j.s === 'no_data') return [];\n    var result = [];\n    for (var i=0; i<t.length; i++) {\n      if (!t[i] || !c2[i]) continue;\n      var close = parseFloat(c2[i]);\n      if (close <= 0) continue;\n      result.push({\n        date:   new Date(t[i]*1000).toISOString().slice(0,10),\n        open:   parseFloat(o[i]||c2[i]),\n        high:   parseFloat(h[i]||c2[i]),\n        low:    parseFloat(l[i]||c2[i]),\n        close:  close,\n        volume: parseInt(v[i]||0)\n      });\n    }\n    return result;\n  } catch(e) { return []; }\n}\n\n// \u2500\u2500 INDEX (raw values = index points, NO *1000) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// VNI confirmed working, HNX/UPCOM symbols TBD\nvar IDX_CANDIDATES = {\n  'VNINDEX': ['VNI', 'VN-INDEX', 'VNINDEX', 'VN30'],\n  'HNX':     ['HNX', 'HNXI', 'HNX30', 'HNXINDEX'],\n  'UPCOM':   ['UPC', 'UPCOM', 'UPCOMINDEX']\n};\nfunction getIndexByCode(code) {\n  var candidates = IDX_CANDIDATES[code] || [code];\n  for (var ci=0; ci<candidates.length; ci++) {\n    var raw = fetchRaw(candidates[ci], 3);\n    if (!raw.length) continue;\n    var last = raw[raw.length-1];\n    var prev = raw.length >= 2 ? raw[raw.length-2] : last;\n    if (last.close <= 0) continue;\n    // Index values from Entrade are already in points (e.g. 1247.5)\n    // NO multiplication needed\n    return {\n      price:     last.close,\n      ref:       prev.close || last.close,\n      change:    last.close - (prev.close||last.close),\n      changePct: prev.close ? (last.close-prev.close)/prev.close*100 : 0\n    };\n  }\n  return null;\n}\n\n// \u2500\u2500 COMPANY NAME \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getCompanyName(sym) {\n  try {\n    var r = UrlFetchApp.fetch(\n      'https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/'+sym+'/overview',\n      {muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'}}\n    );\n    if (r.getResponseCode()===200) {\n      var j = JSON.parse(r.getContentText());\n      return j.companyName||j.shortName||'';\n    }\n  } catch(e) {}\n  return '';\n}\n\n// \u2500\u2500 HELPERS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction ok(data){return ContentService.createTextOutput(JSON.stringify({ok:true,data:data})).setMimeType(ContentService.MimeType.JSON);}\nfunction getOrCreate(ss,name){if(!name)throw new Error('Sheet name required');return ss.getSheetByName(name)||ss.insertSheet(name);}\nfunction repAll(sh,rows){sh.clearContents();if(!rows||!rows.length)return;var keys=Object.keys(rows[0]);sh.appendRow(keys);rows.forEach(function(r){sh.appendRow(keys.map(function(k){return r[k]==null?'':r[k];}));});}\nfunction upsert(sh,rec){var all=sh.getDataRange().getValues();var hdrs=all.length?all[0].map(function(h){return String(h).trim();}):[]; var newK=Object.keys(rec).filter(function(k){return !hdrs.includes(k);});if(newK.length){hdrs=hdrs.concat(newK);if(all.length)sh.getRange(1,1,1,hdrs.length).setValues([hdrs]);else{sh.appendRow(hdrs);return upsert(sh,rec);}}var ic=hdrs.indexOf('id'),row=-1;if(ic>=0&&rec.id!=null)for(var i=1;i<all.length;i++)if(String(all[i][ic])===String(rec.id)){row=i+1;break;}var rd=hdrs.map(function(h){return rec[h]==null?'':rec[h];});if(row>0)sh.getRange(row,1,1,hdrs.length).setValues([rd]);else sh.appendRow(rd);}\nfunction delRow(sh,id){var all=sh.getDataRange().getValues();if(all.length<=1)return;var ic=all[0].map(function(h){return String(h).trim();}).indexOf('id');if(ic<0)return;for(var i=all.length-1;i>=1;i--)if(String(all[i][ic])===String(id)){sh.deleteRow(i+1);return;}}\n";
 
 // ── GLOBAL STATE ────────────────────────────────────────────────
 const CFG_KEY  = 'vnst6_cfg';
@@ -1698,9 +1705,253 @@ async function handlePosXL(file) {
 }
 
 // ── TELEGRAM ─────────────────────────────────────────────────────
+// ── TELEGRAM ─────────────────────────────────────────────────
 async function tgSend(txt) {
+  if (!cfg.tgToken || !cfg.tgChat) return false;
+  try {
+    const r = await fetch('https://api.telegram.org/bot'+cfg.tgToken+'/sendMessage', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id:cfg.tgChat, text:txt, parse_mode:'Markdown'})
+    });
+    return r.ok;
+  } catch(e) { return false; }
+}
+
+// Price history for comparison (stored in localStorage)
+const PH_KEY = 'vnst_ph';
+function savePriceSnapshot() {
+  try {
+    const snap = {ts: Date.now(), prices: {}};
+    Object.entries(PC).forEach(([sym, d]) => {
+      if (d.price > 0) snap.prices[sym] = d.price;
+    });
+    const stats = portfolioStats();
+    snap.mv = stats.totalMV;
+    snap.unr = stats.unrealized;
+    const hist = getPriceHistory();
+    hist.push(snap);
+    // Keep last 30 snapshots
+    const trimmed = hist.slice(-30);
+    localStorage.setItem(PH_KEY, JSON.stringify(trimmed));
+  } catch(e) {}
+}
+function getPriceHistory() {
+  try { return JSON.parse(localStorage.getItem(PH_KEY)||'[]'); } catch(e) { return []; }
+}
+function getSnapAtDaysAgo(days) {
+  const hist = getPriceHistory();
+  const target = Date.now() - days*86400000;
+  // Find closest snapshot before target
+  let best = null;
+  hist.forEach(s => {
+    if (s.ts <= target + 12*3600000) { // within 12h of target
+      if (!best || Math.abs(s.ts - target) < Math.abs(best.ts - target)) best = s;
+    }
+  });
+  return best;
+}
+
+// ── SCHEDULED REPORTS ────────────────────────────────────────
+let reportTimers = {};
+function setupScheduledReports() {
+  // Clear existing timers
+  Object.values(reportTimers).forEach(t => clearTimeout(t));
+  reportTimers = {};
   if (!cfg.tgToken || !cfg.tgChat) return;
-  try { await fetch(`https://api.telegram.org/bot${cfg.tgToken}/sendMessage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:cfg.tgChat,text:txt,parse_mode:'Markdown'})}); } catch(e){}
+
+  function scheduleNext(targetHour, targetMin, fn, name) {
+    const now = new Date();
+    let next = new Date(now);
+    next.setHours(targetHour, targetMin, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    const ms = next - now;
+    reportTimers[name] = setTimeout(async () => {
+      await fn();
+      scheduleNext(targetHour, targetMin, fn, name); // reschedule daily
+    }, ms);
+    console.log('[TG] Next '+name+' in '+Math.round(ms/60000)+'m ('+next.toLocaleTimeString('vi-VN')+')');
+  }
+
+  scheduleNext(7, 0,  sendMorningReport, 'morning');
+  scheduleNext(16, 0, sendAfternoonReport, 'afternoon');
+}
+
+async function buildPortfolioReport(title) {
+  const stats = portfolioStats();
+  if (stats.totalMV <= 0) return null;
+
+  const lines = ['📊 *'+title+'*', '`'+new Date().toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})+'`', ''];
+
+  // Portfolio summary
+  lines.push('*💼 Danh mục:*');
+  lines.push('  GT thị trường: *'+fM(stats.totalMV)+'*');
+  lines.push('  L/L chưa TH: '+(stats.unrealized>=0?'🟢':'🔴')+' *'+fM(stats.unrealized)+'* ('+fP(stats.totalCost>0?stats.unrealized/stats.totalCost*100:0)+')');
+
+  // Comparison with past
+  const comparisons = [[1,'hôm qua'],[3,'3 ngày trước'],[7,'7 ngày trước']];
+  const cmpLines = [];
+  comparisons.forEach(([days, label]) => {
+    const snap = getSnapAtDaysAgo(days);
+    if (snap && snap.mv > 0) {
+      const diff = stats.totalMV - snap.mv;
+      const pct  = snap.mv > 0 ? diff/snap.mv*100 : 0;
+      cmpLines.push('  vs '+label+': '+(diff>=0?'↑':'↓')+' '+fM(Math.abs(diff))+' ('+fP(pct)+')');
+    }
+  });
+  if (cmpLines.length) { lines.push(''); lines.push('*📈 So sánh:*'); cmpLines.forEach(l=>lines.push(l)); }
+
+  // Top movers
+  const movers = Object.entries(PC)
+    .filter(([,d]) => d.price>0 && d.changePct!=null)
+    .sort((a,b) => Math.abs(b[1].changePct) - Math.abs(a[1].changePct))
+    .slice(0, 5);
+  if (movers.length) {
+    lines.push(''); lines.push('*🔥 Biến động hôm nay:*');
+    movers.forEach(([sym,d]) => {
+      const em = d.changePct >= 0 ? '🟢' : '🔴';
+      lines.push('  '+em+' '+sym+': '+fN(d.price,0)+'đ ('+fP(d.changePct)+')');
+    });
+  }
+
+  // Positions
+  const hasPos = D.positions.length > 0;
+  if (hasPos) {
+    lines.push(''); lines.push('*📌 Vị thế:*');
+    [...D.positions]
+      .sort((a,b) => (PC[b.symbol]?.price||b.avgCost)*b.quantity - (PC[a.symbol]?.price||a.avgCost)*a.quantity)
+      .slice(0,8)
+      .forEach(pos => {
+        const p = PC[pos.symbol]?.price || 0;
+        const pnl = p > 0 ? (p - pos.avgCost) * pos.quantity : null;
+        const pct2 = p > 0 && pos.avgCost > 0 ? (p-pos.avgCost)/pos.avgCost*100 : null;
+        const em = pnl===null ? '⚪' : pnl>=0 ? '🟢' : '🔴';
+        lines.push('  '+em+' '+pos.symbol+' '+fN(pos.quantity)+'cp'+(pct2!==null?' '+fP(pct2):''));
+      });
+  }
+
+  return lines.join('\n');
+}
+
+async function sendMorningReport() {
+  savePriceSnapshot();
+  const msg = await buildPortfolioReport('Báo cáo buổi sáng 7:00');
+  if (msg) await tgSend(msg);
+}
+
+async function sendAfternoonReport() {
+  savePriceSnapshot();
+  const msg = await buildPortfolioReport('Báo cáo đóng cửa 16:00');
+  if (msg) await tgSend(msg);
+}
+
+// ── BOT POLLING (admin query via Telegram) ────────────────────
+let tgLastUpdateId = 0;
+let tgPollTimer = null;
+
+function startTgPolling() {
+  if (tgPollTimer) clearInterval(tgPollTimer);
+  if (!cfg.tgToken || !cfg.tgChat) return;
+  // Poll every 10 seconds
+  tgPollTimer = setInterval(pollTgUpdates, 10000);
+  console.log('[TG] Polling started');
+}
+
+async function pollTgUpdates() {
+  if (!cfg.tgToken) return;
+  try {
+    const url = 'https://api.telegram.org/bot'+cfg.tgToken+'/getUpdates?timeout=0&offset='+(tgLastUpdateId+1);
+    const r = await fetch(url, {signal: AbortSignal.timeout(8000)});
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j.ok || !j.result.length) return;
+    for (const upd of j.result) {
+      tgLastUpdateId = upd.update_id;
+      const msg = upd.message || upd.channel_post;
+      if (!msg || !msg.text) continue;
+      // Only respond to messages from our configured chat
+      const fromChat = String(msg.chat?.id || '');
+      if (fromChat !== String(cfg.tgChat)) continue;
+      await handleTgCommand(msg.text.trim());
+    }
+  } catch(e) {}
+}
+
+async function handleTgCommand(text) {
+  const t = text.toLowerCase().replace(/^\//, '').trim();
+
+  if (t === 'help' || t === 'menu') {
+    await tgSend('📋 *Các lệnh hỗ trợ:*\n'
+      +'/dm — Danh mục đầu tư\n'
+      +'/dn — Danh mục quan tâm\n'
+      +'/bc — Báo cáo nhanh\n'
+      +'/gia FPT — Giá một mã\n'
+      +'/ls — Liệt kê vị thế\n'
+      +'/help — Menu này');
+    return;
+  }
+
+  if (t === 'dm' || t === 'danhmuc') {
+    const msg = await buildPortfolioReport('Danh mục đầu tư');
+    await tgSend(msg || 'Chưa có dữ liệu danh mục.');
+    return;
+  }
+
+  if (t === 'bc' || t === 'baocao') {
+    savePriceSnapshot();
+    const msg = await buildPortfolioReport('Báo cáo nhanh');
+    await tgSend(msg || 'Chưa có dữ liệu.');
+    return;
+  }
+
+  if (t === 'dn' || t === 'danhsach') {
+    if (!D.watchlist.length) { await tgSend('Chưa có mã nào trong danh sách quan tâm.'); return; }
+    const lines = ['📋 *Danh mục quan tâm:*'];
+    D.watchlist.forEach(w => {
+      const p = PC[w.symbol];
+      if (p && p.price > 0) {
+        const em = (p.changePct||0) >= 0 ? '🟢' : '🔴';
+        lines.push(em+' *'+w.symbol+'*: '+fN(p.price,0)+'đ ('+fP(p.changePct||0)+')');
+      } else {
+        lines.push('⚪ *'+w.symbol+'*: --');
+      }
+    });
+    await tgSend(lines.join('\n'));
+    return;
+  }
+
+  if (t === 'ls' || t === 'vitthe') {
+    if (!D.positions.length) { await tgSend('Chưa có vị thế nào.'); return; }
+    const lines = ['💼 *Vị thế đang nắm:*'];
+    D.positions.forEach(pos => {
+      const p = PC[pos.symbol]?.price || 0;
+      const pct2 = p > 0 && pos.avgCost > 0 ? (p-pos.avgCost)/pos.avgCost*100 : null;
+      const em = pct2===null?'⚪':pct2>=0?'🟢':'🔴';
+      lines.push(em+' *'+pos.symbol+'* '+fN(pos.quantity)+'cp vốn '+fN(pos.avgCost,0)+'đ'+(pct2!==null?' → '+fP(pct2):''));
+    });
+    await tgSend(lines.join('\n'));
+    return;
+  }
+
+  // /gia FPT or just "FPT"
+  const giaMatch = t.match(/^(?:gia\s+)?([a-z]{2,10})$/i);
+  if (giaMatch) {
+    const sym = giaMatch[1].toUpperCase();
+    const p = PC[sym];
+    if (p && p.price > 0) {
+      const em = (p.changePct||0) >= 0 ? '🟢' : '🔴';
+      const pos = D.positions.find(x => x.symbol===sym);
+      let msg = em+' *'+sym+'*: '+fN(p.price,0)+'đ ('+fP(p.changePct||0)+')';
+      if (pos) {
+        const pnl = (p.price - pos.avgCost) * pos.quantity;
+        msg += '\nVị thế: '+fN(pos.quantity)+'cp | Giá vốn: '+fN(pos.avgCost,0)+'đ\nL/L: '+(pnl>=0?'🟢':'🔴')+' '+fM(pnl)+' ('+fP((p.price-pos.avgCost)/pos.avgCost*100)+')';
+      }
+      await tgSend(msg);
+    } else {
+      await tgSend('⚪ Không có dữ liệu cho mã *'+sym+'*');
+    }
+    return;
+  }
 }
 
 // ── GAS CODE COPY ─────────────────────────────────────────────────
@@ -1998,6 +2249,22 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });;;
     $('btnShowTok').addEventListener('click', () => { const f=$('tgToken'); if(f) f.type = f.type==='password'?'text':'password'; });
+    $('btnSaveTg')?.addEventListener('click', () => {
+      cfg.tgToken = ($('tgToken').value||'').trim();
+      cfg.tgChat  = ($('tgChat').value||'').trim();
+      saveCfg(); setupScheduledReports(); startTgPolling();
+      toast('Đã lưu Telegram','ok');
+    });
+    $('btnTestTg')?.addEventListener('click', async () => {
+      const t=($('tgToken').value||'').trim(), ch=($('tgChat').value||'').trim();
+      if (!t||!ch) { toast('Nhập Token và Chat ID','wn'); return; }
+      const ok = await tgSend('✅ *VN Stock Tracker* kết nối OK!\nCác lệnh: /help /dm /bc /ls /gia FPT');
+      ok ? toast('Telegram OK! Xem tin nhắn trong bot','ok',5000) : toast('Lỗi gửi tin — kiểm tra Token/ChatID','er');
+    });
+    $('btnSendReport')?.addEventListener('click', async () => {
+      await sendAfternoonReport();
+      toast('Đã gửi báo cáo qua Telegram','ok');
+    });
     $('btnSaveCfg').addEventListener('click', () => {
       cfg.altUp   = parseFloat($('altUp').value)||5;
       cfg.altDn   = parseFloat($('altDn').value)||3;
@@ -2015,6 +2282,8 @@ document.addEventListener('DOMContentLoaded', function() {
     makeCardsClickable();
     refreshPrices();
     startTimer();
+    setupScheduledReports();
+    startTgPolling();
     if (cfg.gsUrl) syncFromGS();
 
   } catch(err) {
