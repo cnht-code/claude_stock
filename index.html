@@ -258,7 +258,7 @@ canvas{display:block}
           <h3><i class="fas fa-chart-area"></i> Biểu đồ giá</h3>
           <div style="display:flex;gap:6px">
             <select class="fg" style="margin:0;padding:5px 8px;background:var(--inp);color:var(--t1);border:1px solid var(--bdr);border-radius:5px;font-family:var(--mono);font-size:.72rem;cursor:pointer" id="chartSym"><option value="">-- Chọn mã --</option></select>
-            <select class="fg" style="margin:0;padding:5px 8px;background:var(--inp);color:var(--t1);border:1px solid var(--bdr);border-radius:5px;font-family:var(--mono);font-size:.72rem;cursor:pointer" id="chartDays"><option value="30">1 tháng</option><option value="90">3 tháng</option><option value="180">6 tháng</option><option value="365" selected>1 năm</option></select>
+            <select class="fg" style="margin:0;padding:5px 8px;background:var(--inp);color:var(--t1);border:1px solid var(--bdr);border-radius:5px;font-family:var(--mono);font-size:.72rem;cursor:pointer" id="chartDays"><option value="30">1 tháng</option><option value="90">3 tháng</option><option value="180">6 tháng</option><option value="365" selected>1 năm</option><option value="540">18 tháng</option><option value="720">24 tháng</option></select>
           </div>
         </div>
         <div style="height:280px;position:relative;padding:12px"><canvas id="priceChart"></canvas></div>
@@ -312,6 +312,7 @@ canvas{display:block}
         <button class="btn btn-g" id="btnBuy"><i class="fas fa-arrow-up"></i> Đặt lệnh Mua</button>
         <button class="btn btn-r" id="btnSell"><i class="fas fa-arrow-down"></i> Đặt lệnh Bán</button>
         <label class="file-btn"><i class="fas fa-file-import"></i> Import Excel<input type="file" id="impOrdXL" accept=".xlsx,.xls"/></label>
+        <button class="btn btn-s" id="btnPasteOrd"><i class="fas fa-paste"></i> Nhập nhiều dòng</button>
         <button class="btn btn-d btn-sm" id="btnReset"><i class="fas fa-undo"></i> Reset</button>
         <button class="btn btn-d btn-sm" id="btnDelSelOrd" style="display:none" onclick="deleteSelected('cbOrd','orders')">Xoá 0 dòng</button>
         <select id="ordFilt" style="padding:7px 9px;background:var(--inp);color:var(--t1);border:1px solid var(--bdr);border-radius:6px;font-family:var(--mono);font-size:.76rem;cursor:pointer">
@@ -422,6 +423,33 @@ canvas{display:block}
     <div class="mhdr"><h3 id="detailTitle">Chi tiết</h3><button class="ibtn" onclick="closeModal('detailModal')"><i class="fas fa-times"></i></button></div>
     <div class="mbody" id="detailBody"></div>
     <div class="mfoot"><button class="btn btn-s" onclick="closeModal('detailModal')">Đóng</button></div>
+  </div>
+</div>
+
+<!-- Paste Orders Modal -->
+<div class="modal" id="pasteOrdModal">
+  <div class="mbg" onclick="closeModal('pasteOrdModal')"></div>
+  <div class="mbox" style="max-width:560px">
+    <div class="mhdr"><h3><i class="fas fa-paste"></i> Nhập lệnh nhiều dòng</h3><button class="ibtn" onclick="closeModal('pasteOrdModal')"><i class="fas fa-times"></i></button></div>
+    <div class="mbody">
+      <div style="background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.15);border-radius:6px;padding:10px;margin-bottom:10px;font-size:.72rem;color:var(--t2);line-height:1.8">
+        <strong style="color:var(--cyan)">Format mỗi dòng:</strong> <code style="color:var(--green)">MÃ  MUA/BÁN  GIÁ  KL  [TRẠNG_THÁI]  [NGÀY]</code><br>
+        Trạng thái: <code>pending</code> (mặc định) hoặc <code>filled</code><br>
+        Giá &lt; 1000 → tự nhân 1000. Ngày: YYYY-MM-DD<br>
+        <strong>Ví dụ:</strong><code style="color:var(--t1);display:block;margin-top:4px">FPT  mua  127000  1000  filled  2026-04-01<br>VNM  bán  75000   500   pending<br>HPG  mua  24  2000</code>
+      </div>
+      <div class="fg"><label>Dán dữ liệu vào đây</label>
+        <textarea id="pasteOrdText" style="min-height:120px;font-family:var(--mono)" placeholder="FPT  mua  127000  1000&#10;VNM  bán  75000   500"></textarea>
+      </div>
+      <div id="pasteOrdPrev" style="display:none">
+        <div id="pasteOrdInfo" style="font-size:.72rem;color:var(--cyan);margin-bottom:6px"></div>
+        <div class="tscroll" style="max-height:160px;overflow-y:auto;border:1px solid var(--bdr);border-radius:6px">
+          <table class="dtb"><thead><tr><th>Mã</th><th>Loại</th><th>Giá</th><th>KL</th><th>TT</th><th>Ngày</th></tr></thead><tbody id="tbPasteOrdPrev"></tbody></table>
+        </div>
+      </div>
+      <button class="btn btn-s" style="width:100%;margin-top:8px" id="btnPrevPasteOrd"><i class="fas fa-eye"></i> Xem trước</button>
+    </div>
+    <div class="mfoot"><button class="btn btn-s" onclick="closeModal('pasteOrdModal')">Huỷ</button><button class="btn btn-p" id="btnSavePasteOrd">Lưu tất cả</button></div>
   </div>
 </div>
 
@@ -618,7 +646,7 @@ canvas{display:block}
 // ================================================================
 
 // ── GAS SCRIPT CODE (embedded for copy) ────────────────────────
-const GAS_CODE = "// VN Stock Tracker \u2014 Apps Script v13\n// Entrade API: resolution=1D, VNI for VNINDEX index\n// RULE: fetchEntrade returns RAW values (no *1000)\n//       getPrice multiplies *1000 for stocks\n//       getHistory multiplies *1000 for stocks\n//       getIndexBySymbol does NOT multiply (index points are already correct)\n\nvar VER = 13;\nfunction doGet(e)  { return handle(e); }\nfunction doPost(e) { return handle(e); }\nfunction testAuth() {\n  var r = UrlFetchApp.fetch('https://httpbin.org/get', {muteHttpExceptions:true});\n  Logger.log('OK: ' + r.getResponseCode());\n}\n\nfunction handle(e) {\n  try {\n    var p = e.parameter || {};\n    var body = {};\n    if (e.postData && e.postData.contents) { try { body = JSON.parse(e.postData.contents); } catch(_) {} }\n    var all = Object.assign({}, body, p);\n    var act = all.action;\n    var ss  = SpreadsheetApp.getActiveSpreadsheet();\n\n    if (act === 'ping') return ok({ver:VER, name:ss.getName()});\n\n    if (act === 'testEndpoint') {\n      var sym = (all.symbol||'FPT').toUpperCase();\n      var to = Math.floor(Date.now()/1000), fr = to-10*86400;\n      var res = {};\n      var tests = [\n        ['stock_FPT',  'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=FPT&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_VNI',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=VNI&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_HNX',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=HNX&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_HNXI',   'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=HNXI&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_UPCOM',  'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=UPCOM&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_UPC',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=UPC&from='+fr+'&to='+to+'&resolution=1D'],\n      ];\n      for (var i=0; i<tests.length; i++) {\n        try {\n          var r = UrlFetchApp.fetch(tests[i][1], {muteHttpExceptions:true, headers:{'User-Agent':'Mozilla/5.0'}});\n          var code = r.getResponseCode();\n          var txt = r.getContentText();\n          var j = null; try { j = JSON.parse(txt); } catch(_) {}\n          var hasData = (code===200 && j && j.t && Array.isArray(j.t) && j.t.length>0 && j.t[0]!==null);\n          var sample = hasData ? ('bars:'+j.t.length+' last_close:'+j.c[j.c.length-1]) : txt.slice(0,80);\n          res[tests[i][0]] = {code:code, hasData:hasData, sample:sample};\n        } catch(ex) { res[tests[i][0]] = {code:0, hasData:false, sample:ex.message.slice(0,60)}; }\n      }\n      return ok(res);\n    }\n\n    if (act === 'getPrice') {\n      var syms = String(all.symbols||'').toUpperCase().split(',').map(function(s){return s.trim();}).filter(Boolean);\n      var out = {};\n      syms.forEach(function(s) { var d = getPrice(s); if(d) out[s] = d; });\n      return ok(out);\n    }\n    if (act === 'getIndex') {\n      return ok({\n        VNINDEX: getIndexByCode('VNINDEX'),\n        HNX:     getIndexByCode('HNX'),\n        UPCOM:   getIndexByCode('UPCOM')\n      });\n    }\n    if (act === 'getHistory') {\n      var sym2 = String(all.symbol||'').toUpperCase().trim();\n      var days = parseInt(all.days||365);\n      return ok(getStockHistory(sym2, days));\n    }\n    if (act === 'getCompanyName') {\n      var sym3 = String(all.symbol||'').toUpperCase().trim();\n      return ok({name: getCompanyName(sym3)});\n    }\n\n    var sh = all.sheet;\n    if (act === 'getAll') {\n      var s = getOrCreate(ss, sh);\n      var v = s.getDataRange().getValues();\n      if (v.length <= 1) return ok([]);\n      var h = v[0].map(function(x){return String(x).trim();});\n      return ok(v.slice(1).map(function(row){\n        var o={}; h.forEach(function(k,i){o[k]=(row[i]===''||row[i]==null)?null:row[i];}); return o;\n      }).filter(function(row){return Object.values(row).some(function(x){return x!=null&&x!=='';}); }));\n    }\n    if (act==='upsert')     { upsert(getOrCreate(ss,sh), body.record||JSON.parse(all.record||'{}')); return ok({saved:true}); }\n    if (act==='delete')     { delRow(getOrCreate(ss,sh), all.id); return ok({deleted:true}); }\n    if (act==='replaceAll') { repAll(getOrCreate(ss,sh), body.records||(all.records?JSON.parse(all.records):[])); return ok({replaced:true}); }\n    return ok({error:'Unknown: '+act});\n  } catch(err) {\n    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\n// \u2500\u2500 CORE: fetchRaw \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Returns RAW Entrade values. NO multiplication.\n// Stock prices: ~127.5 (means 127,500 VND - must *1000 in caller)\n// Index values: ~1200 (already in correct points unit)\nfunction fetchRaw(sym, days) {\n  try {\n    var to = Math.floor(Date.now()/1000);\n    var fr = to - (days + 30) * 86400;\n    var r = UrlFetchApp.fetch(\n      'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol='+sym+'&from='+fr+'&to='+to+'&resolution=1D',\n      {muteHttpExceptions:true, headers:{'User-Agent':'Mozilla/5.0'}}\n    );\n    if (r.getResponseCode() !== 200) return [];\n    var j = JSON.parse(r.getContentText());\n    var t=j.t||[], c=j.c||[], o=j.o||[], h=j.h||[], l=j.l||[], v=j.v||[];\n    if (!t.length || t[0]===null) return [];\n    var result = [];\n    for (var i=0; i<t.length; i++) {\n      if (!t[i] || c[i]===null || c[i]===undefined) continue;\n      var close = parseFloat(c[i]);\n      if (close <= 0) continue;\n      result.push({\n        date:   new Date(t[i]*1000).toISOString().slice(0,10),\n        open:   parseFloat(o[i]||c[i]),\n        high:   parseFloat(h[i]||c[i]),\n        low:    parseFloat(l[i]||c[i]),\n        close:  close,\n        volume: parseInt(v[i]||0)\n      });\n    }\n    return result.slice(-days);\n  } catch(e) { return []; }\n}\n\n// \u2500\u2500 STOCK PRICE (returns VND) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getPrice(sym) {\n  var bars = fetchRaw(sym, 5);\n  if (!bars.length) return null;\n  var last = bars[bars.length-1];\n  var prev = bars.length >= 2 ? bars[bars.length-2] : last;\n  // Raw close is in thousands: 127.5 -> multiply to get VND: 127500\n  var price = last.close * 1000;\n  var ref   = prev.close * 1000;\n  if (price < 100) return null;\n  return {\n    price:     price,\n    ref:       ref,\n    change:    price - ref,\n    changePct: ref ? (price-ref)/ref*100 : 0,\n    volume:    last.volume,\n    source:    'Entrade',\n    date:      last.date\n  };\n}\n\n// \u2500\u2500 STOCK HISTORY (returns VND - multiplied *1000) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getStockHistory(sym, days) {\n  var raw = fetchRaw(sym, days);\n  if (!raw.length) return [];\n  // Convert raw thousands -> VND\n  return raw.map(function(b) {\n    return {\n      date:   b.date,\n      open:   b.open  * 1000,\n      high:   b.high  * 1000,\n      low:    b.low   * 1000,\n      close:  b.close * 1000,\n      volume: b.volume\n    };\n  });\n}\n\n// \u2500\u2500 INDEX (raw values = index points, NO *1000) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// VNI confirmed working, HNX/UPCOM symbols TBD\nvar IDX_CANDIDATES = {\n  'VNINDEX': ['VNI', 'VN-INDEX', 'VNINDEX'],\n  'HNX':     ['HNX', 'HNXI', 'HNX-INDEX', 'HNX30'],\n  'UPCOM':   ['UPCOM', 'UPC', 'UPCOM-INDEX']\n};\nfunction getIndexByCode(code) {\n  var candidates = IDX_CANDIDATES[code] || [code];\n  for (var ci=0; ci<candidates.length; ci++) {\n    var raw = fetchRaw(candidates[ci], 3);\n    if (!raw.length) continue;\n    var last = raw[raw.length-1];\n    var prev = raw.length >= 2 ? raw[raw.length-2] : last;\n    if (last.close <= 0) continue;\n    // Index values from Entrade are already in points (e.g. 1247.5)\n    // NO multiplication needed\n    return {\n      price:     last.close,\n      ref:       prev.close || last.close,\n      change:    last.close - (prev.close||last.close),\n      changePct: prev.close ? (last.close-prev.close)/prev.close*100 : 0\n    };\n  }\n  return null;\n}\n\n// \u2500\u2500 COMPANY NAME \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getCompanyName(sym) {\n  try {\n    var r = UrlFetchApp.fetch(\n      'https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/'+sym+'/overview',\n      {muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'}}\n    );\n    if (r.getResponseCode()===200) {\n      var j = JSON.parse(r.getContentText());\n      return j.companyName||j.shortName||'';\n    }\n  } catch(e) {}\n  return '';\n}\n\n// \u2500\u2500 HELPERS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction ok(data){return ContentService.createTextOutput(JSON.stringify({ok:true,data:data})).setMimeType(ContentService.MimeType.JSON);}\nfunction getOrCreate(ss,name){if(!name)throw new Error('Sheet name required');return ss.getSheetByName(name)||ss.insertSheet(name);}\nfunction repAll(sh,rows){sh.clearContents();if(!rows||!rows.length)return;var keys=Object.keys(rows[0]);sh.appendRow(keys);rows.forEach(function(r){sh.appendRow(keys.map(function(k){return r[k]==null?'':r[k];}));});}\nfunction upsert(sh,rec){var all=sh.getDataRange().getValues();var hdrs=all.length?all[0].map(function(h){return String(h).trim();}):[]; var newK=Object.keys(rec).filter(function(k){return !hdrs.includes(k);});if(newK.length){hdrs=hdrs.concat(newK);if(all.length)sh.getRange(1,1,1,hdrs.length).setValues([hdrs]);else{sh.appendRow(hdrs);return upsert(sh,rec);}}var ic=hdrs.indexOf('id'),row=-1;if(ic>=0&&rec.id!=null)for(var i=1;i<all.length;i++)if(String(all[i][ic])===String(rec.id)){row=i+1;break;}var rd=hdrs.map(function(h){return rec[h]==null?'':rec[h];});if(row>0)sh.getRange(row,1,1,hdrs.length).setValues([rd]);else sh.appendRow(rd);}\nfunction delRow(sh,id){var all=sh.getDataRange().getValues();if(all.length<=1)return;var ic=all[0].map(function(h){return String(h).trim();}).indexOf('id');if(ic<0)return;for(var i=all.length-1;i>=1;i--)if(String(all[i][ic])===String(id)){sh.deleteRow(i+1);return;}}\n";
+const GAS_CODE = "// VN Stock Tracker \u2014 Apps Script v13\n// Entrade API: resolution=1D, VNI for VNINDEX index\n// RULE: fetchEntrade returns RAW values (no *1000)\n//       getPrice multiplies *1000 for stocks\n//       getHistory multiplies *1000 for stocks\n//       getIndexBySymbol does NOT multiply (index points are already correct)\n\nvar VER = 14;\nfunction doGet(e)  { return handle(e); }\nfunction doPost(e) { return handle(e); }\nfunction testAuth() {\n  var r = UrlFetchApp.fetch('https://httpbin.org/get', {muteHttpExceptions:true});\n  Logger.log('OK: ' + r.getResponseCode());\n}\n\nfunction handle(e) {\n  try {\n    var p = e.parameter || {};\n    var body = {};\n    if (e.postData && e.postData.contents) { try { body = JSON.parse(e.postData.contents); } catch(_) {} }\n    var all = Object.assign({}, body, p);\n    var act = all.action;\n    var ss  = SpreadsheetApp.getActiveSpreadsheet();\n\n    if (act === 'ping') return ok({ver:VER, name:ss.getName()});\n\n    if (act === 'testEndpoint') {\n      var sym = (all.symbol||'FPT').toUpperCase();\n      var to = Math.floor(Date.now()/1000), fr = to-10*86400;\n      var res = {};\n      var tests = [\n        ['stock_FPT',  'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=FPT&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_VNI',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=VNI&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_HNX',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=HNX&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_HNXI',   'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=HNXI&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_UPCOM',  'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=UPCOM&from='+fr+'&to='+to+'&resolution=1D'],\n        ['idx_UPC',    'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol=UPC&from='+fr+'&to='+to+'&resolution=1D'],\n      ];\n      for (var i=0; i<tests.length; i++) {\n        try {\n          var r = UrlFetchApp.fetch(tests[i][1], {muteHttpExceptions:true, headers:{'User-Agent':'Mozilla/5.0'}});\n          var code = r.getResponseCode();\n          var txt = r.getContentText();\n          var j = null; try { j = JSON.parse(txt); } catch(_) {}\n          var hasData = (code===200 && j && j.t && Array.isArray(j.t) && j.t.length>0 && j.t[0]!==null);\n          var sample = hasData ? ('bars:'+j.t.length+' last_close:'+j.c[j.c.length-1]) : txt.slice(0,80);\n          res[tests[i][0]] = {code:code, hasData:hasData, sample:sample};\n        } catch(ex) { res[tests[i][0]] = {code:0, hasData:false, sample:ex.message.slice(0,60)}; }\n      }\n      return ok(res);\n    }\n\n    if (act === 'getPrice') {\n      var syms = String(all.symbols||'').toUpperCase().split(',').map(function(s){return s.trim();}).filter(Boolean);\n      var out = {};\n      syms.forEach(function(s) { var d = getPrice(s); if(d) out[s] = d; });\n      return ok(out);\n    }\n    if (act === 'getIndex') {\n      return ok({\n        VNINDEX: getIndexByCode('VNINDEX'),\n        HNX:     getIndexByCode('HNX'),\n        UPCOM:   getIndexByCode('UPCOM')\n      });\n    }\n    if (act === 'getHistory') {\n      var sym2 = String(all.symbol||'').toUpperCase().trim();\n      var days = parseInt(all.days||365);\n      return ok(getStockHistory(sym2, days));\n    }\n    if (act === 'getCompanyName') {\n      var sym3 = String(all.symbol||'').toUpperCase().trim();\n      return ok({name: getCompanyName(sym3)});\n    }\n\n    var sh = all.sheet;\n    if (act === 'getAll') {\n      var s = getOrCreate(ss, sh);\n      var v = s.getDataRange().getValues();\n      if (v.length <= 1) return ok([]);\n      var h = v[0].map(function(x){return String(x).trim();});\n      return ok(v.slice(1).map(function(row){\n        var o={}; h.forEach(function(k,i){o[k]=(row[i]===''||row[i]==null)?null:row[i];}); return o;\n      }).filter(function(row){return Object.values(row).some(function(x){return x!=null&&x!=='';}); }));\n    }\n    if (act==='upsert')     { upsert(getOrCreate(ss,sh), body.record||JSON.parse(all.record||'{}')); return ok({saved:true}); }\n    if (act==='delete')     { delRow(getOrCreate(ss,sh), all.id); return ok({deleted:true}); }\n    if (act==='replaceAll') { repAll(getOrCreate(ss,sh), body.records||(all.records?JSON.parse(all.records):[])); return ok({replaced:true}); }\n    return ok({error:'Unknown: '+act});\n  } catch(err) {\n    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);\n  }\n}\n\n// \u2500\u2500 CORE: fetchRaw \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// Returns RAW Entrade values. NO multiplication.\n// Stock prices: ~127.5 (means 127,500 VND - must *1000 in caller)\n// Index values: ~1200 (already in correct points unit)\nfunction fetchRaw(sym, days) {\n  try {\n    var to = Math.floor(Date.now()/1000);\n    var fr = to - (days + 60) * 86400;\n    var r = UrlFetchApp.fetch(\n      'https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?symbol='+sym+'&from='+fr+'&to='+to+'&resolution=1D',\n      {muteHttpExceptions:true, headers:{'User-Agent':'Mozilla/5.0'}}\n    );\n    if (r.getResponseCode() !== 200) return [];\n    var j = JSON.parse(r.getContentText());\n    var t=j.t||[], c=j.c||[], o=j.o||[], h=j.h||[], l=j.l||[], v=j.v||[];\n    if (!t.length || t[0]===null) return [];\n    var result = [];\n    for (var i=0; i<t.length; i++) {\n      if (!t[i] || c[i]===null || c[i]===undefined) continue;\n      var close = parseFloat(c[i]);\n      if (close <= 0) continue;\n      result.push({\n        date:   new Date(t[i]*1000).toISOString().slice(0,10),\n        open:   parseFloat(o[i]||c[i]),\n        high:   parseFloat(h[i]||c[i]),\n        low:    parseFloat(l[i]||c[i]),\n        close:  close,\n        volume: parseInt(v[i]||0)\n      });\n    }\n    return result.slice(-days);\n  } catch(e) { return []; }\n}\n\n// \u2500\u2500 STOCK PRICE (returns VND) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getPrice(sym) {\n  var bars = fetchRaw(sym, 5);\n  if (!bars.length) return null;\n  var last = bars[bars.length-1];\n  var prev = bars.length >= 2 ? bars[bars.length-2] : last;\n  // Raw close is in thousands: 127.5 -> multiply to get VND: 127500\n  var price = last.close * 1000;\n  var ref   = prev.close * 1000;\n  if (price < 100) return null;\n  return {\n    price:     price,\n    ref:       ref,\n    change:    price - ref,\n    changePct: ref ? (price-ref)/ref*100 : 0,\n    volume:    last.volume,\n    source:    'Entrade',\n    date:      last.date\n  };\n}\n\n// \u2500\u2500 STOCK HISTORY (returns VND - multiplied *1000) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getStockHistory(sym, days) {\n  // Try Entrade first (up to ~6 months)\n  var raw = fetchRaw(sym, days);\n  // If we need more and got less than expected, try SSI iboard\n  var expectedBars = Math.floor(days * 5/7);\n  if (raw.length < expectedBars * 0.7) {\n    var ssi = fetchSSIHistory(sym, days);\n    if (ssi.length > raw.length) raw = ssi;\n  }\n  if (!raw.length) return [];\n  return raw.map(function(b) {\n    return {\n      date:   b.date,\n      open:   b.open  * 1000,\n      high:   b.high  * 1000,\n      low:    b.low   * 1000,\n      close:  b.close * 1000,\n      volume: b.volume\n    };\n  }).slice(-days);\n}\n\nfunction fetchSSIHistory(sym, days) {\n  try {\n    var to = Math.floor(Date.now()/1000);\n    var fr = to - (days + 60) * 86400;\n    var r = UrlFetchApp.fetch(\n      'https://iboard.ssi.com.vn/dchart/api/history?resolution=D&ticker='+sym+'&from='+fr+'&to='+to,\n      {muteHttpExceptions:true, headers:{\n        'Referer':'https://iboard.ssi.com.vn/',\n        'Origin':'https://iboard.ssi.com.vn',\n        'User-Agent':'Mozilla/5.0'\n      }}\n    );\n    if (r.getResponseCode() !== 200) return [];\n    var j = JSON.parse(r.getContentText());\n    var t=j.t||[], c2=j.c||[], o=j.o||[], h=j.h||[], l=j.l||[], v=j.v||[];\n    if (!t.length || j.s === 'no_data') return [];\n    var result = [];\n    for (var i=0; i<t.length; i++) {\n      if (!t[i] || !c2[i]) continue;\n      var close = parseFloat(c2[i]);\n      if (close <= 0) continue;\n      result.push({\n        date:   new Date(t[i]*1000).toISOString().slice(0,10),\n        open:   parseFloat(o[i]||c2[i]),\n        high:   parseFloat(h[i]||c2[i]),\n        low:    parseFloat(l[i]||c2[i]),\n        close:  close,\n        volume: parseInt(v[i]||0)\n      });\n    }\n    return result;\n  } catch(e) { return []; }\n}\n\n// \u2500\u2500 INDEX (raw values = index points, NO *1000) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n// VNI confirmed working, HNX/UPCOM symbols TBD\nvar IDX_CANDIDATES = {\n  'VNINDEX': ['VNI', 'VN-INDEX', 'VNINDEX', 'VN30'],\n  'HNX':     ['HNX', 'HNXINDEX', 'HNXI', 'HNX-INDEX', 'HNX30', 'HNX-COMPOSITE'],\n  'UPCOM':   ['UPCOM', 'UPCOMINDEX', 'UPC', 'UPCOM-INDEX', 'UpCOM']\n};\nfunction getIndexByCode(code) {\n  var candidates = IDX_CANDIDATES[code] || [code];\n  for (var ci=0; ci<candidates.length; ci++) {\n    var raw = fetchRaw(candidates[ci], 3);\n    if (!raw.length) continue;\n    var last = raw[raw.length-1];\n    var prev = raw.length >= 2 ? raw[raw.length-2] : last;\n    if (last.close <= 0) continue;\n    // Index values from Entrade are already in points (e.g. 1247.5)\n    // NO multiplication needed\n    return {\n      price:     last.close,\n      ref:       prev.close || last.close,\n      change:    last.close - (prev.close||last.close),\n      changePct: prev.close ? (last.close-prev.close)/prev.close*100 : 0\n    };\n  }\n  return null;\n}\n\n// \u2500\u2500 COMPANY NAME \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction getCompanyName(sym) {\n  try {\n    var r = UrlFetchApp.fetch(\n      'https://apipubaws.tcbs.com.vn/tcanalysis/v1/ticker/'+sym+'/overview',\n      {muteHttpExceptions:true, headers:{Referer:'https://tcinvest.tcbs.com.vn/'}}\n    );\n    if (r.getResponseCode()===200) {\n      var j = JSON.parse(r.getContentText());\n      return j.companyName||j.shortName||'';\n    }\n  } catch(e) {}\n  return '';\n}\n\n// \u2500\u2500 HELPERS \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nfunction ok(data){return ContentService.createTextOutput(JSON.stringify({ok:true,data:data})).setMimeType(ContentService.MimeType.JSON);}\nfunction getOrCreate(ss,name){if(!name)throw new Error('Sheet name required');return ss.getSheetByName(name)||ss.insertSheet(name);}\nfunction repAll(sh,rows){sh.clearContents();if(!rows||!rows.length)return;var keys=Object.keys(rows[0]);sh.appendRow(keys);rows.forEach(function(r){sh.appendRow(keys.map(function(k){return r[k]==null?'':r[k];}));});}\nfunction upsert(sh,rec){var all=sh.getDataRange().getValues();var hdrs=all.length?all[0].map(function(h){return String(h).trim();}):[]; var newK=Object.keys(rec).filter(function(k){return !hdrs.includes(k);});if(newK.length){hdrs=hdrs.concat(newK);if(all.length)sh.getRange(1,1,1,hdrs.length).setValues([hdrs]);else{sh.appendRow(hdrs);return upsert(sh,rec);}}var ic=hdrs.indexOf('id'),row=-1;if(ic>=0&&rec.id!=null)for(var i=1;i<all.length;i++)if(String(all[i][ic])===String(rec.id)){row=i+1;break;}var rd=hdrs.map(function(h){return rec[h]==null?'':rec[h];});if(row>0)sh.getRange(row,1,1,hdrs.length).setValues([rd]);else sh.appendRow(rd);}\nfunction delRow(sh,id){var all=sh.getDataRange().getValues();if(all.length<=1)return;var ic=all[0].map(function(h){return String(h).trim();}).indexOf('id');if(ic<0)return;for(var i=all.length-1;i>=1;i--)if(String(all[i][ic])===String(id)){sh.deleteRow(i+1);return;}}\n";
 
 // ── GLOBAL STATE ────────────────────────────────────────────────
 const CFG_KEY  = 'vnst6_cfg';
@@ -1079,7 +1107,8 @@ function renderDashboard() {
   const sel = $('chartSym');
   if (sel) {
     const prev = sel.value;
-    sel.innerHTML = '<option value="">-- Chọn mã --</option>' + D.watchlist.map(w => `<option value="${w.symbol}">${w.symbol}${w.name?' - '+w.name.slice(0,14):''}</option>`).join('');
+    const seenCS=new Set(); const csSyms=[...D.orders.filter(o=>o.status!=='cancelled').map(o=>o.symbol),...D.positions.map(p=>p.symbol),...D.watchlist.map(w=>w.symbol)].filter(s=>{if(!s||seenCS.has(s))return false;seenCS.add(s);return true;});
+    sel.innerHTML = '<option value="">-- Chọn mã --</option>' + csSyms.map(s=>{const w=D.watchlist.find(x=>x.symbol===s);const nm=w?.name||'';return '<option value="'+s+'">'+s+(nm?' - '+nm.slice(0,14):'')+'</option>';}).join('');
     if (prev) sel.value = prev;
   }
 }
@@ -1142,7 +1171,12 @@ function renderPortfolio() {
   if (tb) {
     if (!D.positions.length) { tb.innerHTML = '<tr><td colspan="9" class="empty">Chưa có vị thế nào.</td></tr>'; }
     else {
-      tb.innerHTML = D.positions.map(pos => {
+      const sortedPos = [...D.positions].sort((a,b) => {
+        const mvA = (PC[a.symbol]?.price || a.avgCost || 0) * (a.quantity||0);
+        const mvB = (PC[b.symbol]?.price || b.avgCost || 0) * (b.quantity||0);
+        return mvB - mvA;
+      });
+      tb.innerHTML = sortedPos.map(pos => {
         const p = PC[pos.symbol] || {};
         const hp = p.price && p.price > 0;
         const avg = Number(pos.avgCost) || 0;
@@ -1247,7 +1281,8 @@ function renderOrders() {
       <td>${stMap[o.status] || o.status} <span style="font-size:.7rem;color:var(--tm)">${o.status==='pending'?'Chờ':o.status==='filled'?'Khớp':'Huỷ'}</span></td>
       <td class="${pnlCls}" style="font-weight:700">${pnl != null ? fM(pnl) : '--'}</td>
       <td class="${pnlCls}">${pct != null ? fP(pct) : '--'}</td>
-      <td style="display:flex;gap:3px">
+      <td style="display:flex;gap:3px;flex-wrap:wrap">
+        ${o.status==='filled' ? '<button class="btn btn-p btn-sm" onclick="confirmOrder(\''+o.id+'\')" title="Xác nhận → lưu vào GD/Vị thế" style="font-size:.68rem;padding:3px 7px"><i class="fas fa-check"></i> XN</button>' : ''}
         <button class="btn btn-s btn-sm" onclick="editOrd('${o.id}')" title="Sửa"><i class="fas fa-edit"></i></button>
         <button class="btn btn-d btn-sm" onclick="delOrd('${o.id}')" title="Xoá"><i class="fas fa-trash"></i></button>
       </td>
@@ -1348,10 +1383,15 @@ async function drawPriceChart(sym) {
   const {grid,tick,lgd:lgdC} = chartTheme();
   const ds = [{label:sym, data:closes, borderColor:'#00d4ff', backgroundColor:'rgba(0,212,255,.05)', fill:true, tension:.3, pointRadius:0, pointHoverRadius:3, borderWidth:1.5, order:1}];
   const addLine = (lbl, val, color, dash) => { if (val && val > 0) ds.push({label:lbl, data:Array(labels.length).fill(val), borderColor:color, borderDash:dash||[], borderWidth:1.5, pointRadius:0, fill:false, tension:0, order:2}); };
-  addLine('Giá TT: ' + (curP ? fN(curP,0) : '--'), curP, '#ffd32a', [3,3]);
-  addLine('Giá vốn: ' + (avgC ? fN(avgC,2) : '--'), avgC, '#00d4ff', [6,3]);
-  addLine('Mua MT: ' + (tBuy ? fN(tBuy,0) : '--'), tBuy, '#00e676', [4,4]);
-  addLine('Bán MT: ' + (tSell ? fN(tSell,0) : '--'), tSell, '#ff4757', [4,4]);
+  addLine('Giá TT: '   + (curP  ? fN(curP,0)  : '--'), curP,  '#ffd32a', [3,3]);
+  addLine('Giá vốn: ' + (avgC  ? fN(avgC,0)  : '--'), avgC,  '#00d4ff', [6,3]);
+  addLine('Mua MT: '  + (tBuy  ? fN(tBuy,0)  : '--'), tBuy,  '#00e676', [4,4]);
+  addLine('Bán MT: '  + (tSell ? fN(tSell,0) : '--'), tSell, '#ff4757', [4,4]);
+  // Pending buy/sell orders for this symbol
+  const pendBuys  = D.orders.filter(o=>o.symbol===sym&&o.type==='buy' &&o.status==='pending');
+  const pendSells = D.orders.filter(o=>o.symbol===sym&&o.type==='sell'&&o.status==='pending');
+  if (pendBuys.length)  addLine('Lệnh mua: ' +fN(pendBuys[0].orderPrice,0),  pendBuys[0].orderPrice,  '#4dff91', [2,4]);
+  if (pendSells.length) addLine('Lệnh bán: '+fN(pendSells[0].orderPrice,0), pendSells[0].orderPrice, '#ff8080', [2,4]);
   charts.price = new Chart(canvas, {
     type:'line', data:{labels, datasets:ds},
     options:{responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
@@ -1808,8 +1848,29 @@ document.addEventListener('DOMContentLoaded', function() {
     $('ordFilt').addEventListener('change', () => renderOrders());
     $('impOrdXL').addEventListener('change', e => { handleOrdXL(e.target.files[0]); e.target.value=''; });
     $('btnConfImp').addEventListener('click', confirmImp);
-    $('btnReset').addEventListener('click', () => {
-      if (!confirm('Reset TOÀN BỘ Nhật ký lệnh + Vị thế?\nWatchlist và GD cũ giữ nguyên.')) return;
+    $('btnPasteOrd')?.addEventListener('click', () => {
+      const t=$('pasteOrdText'); if(t) t.value='';
+      const p=$('pasteOrdPrev'); if(p) p.style.display='none';
+      pendingPasteOrds=[];
+      openModal('pasteOrdModal');
+    });
+    $('btnPrevPasteOrd')?.addEventListener('click', previewPasteOrds);
+    $('btnSavePasteOrd')?.addEventListener('click', async () => {
+      if (!pendingPasteOrds.length) { previewPasteOrds(); return; }
+      const cnt = pendingPasteOrds.length;
+      for (const o of pendingPasteOrds) {
+        if (o.status==='filled' && o.type==='sell') { o.avgBuyPrice=avgBuy(o.symbol,o.id); o.pnl=pnlOfOrder(o); }
+        saveRec('orders', o);
+        await ensureWL(o.symbol);
+      }
+      rebuildPositions();
+      closeModal('pasteOrdModal');
+      pendingPasteOrds=[];
+      toast('Đã lưu '+cnt+' lệnh','ok',4000);
+      render(); updateBadges();
+    });
+
+    $('btnReset').addEventListener('click', () => {      if (!confirm('Reset TOÀN BỘ Nhật ký lệnh + Vị thế?\nWatchlist và GD cũ giữ nguyên.')) return;
       D.orders=[]; D.positions=[]; saveData();
       if (cfg.gsUrl) { gasReplace('orders',[]).catch(()=>{}); gasReplace('positions',[]).catch(()=>{}); }
       render(); updateBadges(); toast('Đã reset. Import lại từ đầu.','in',5000);
@@ -2025,6 +2086,97 @@ function delWLbySym(s) {
   D.watchlist=D.watchlist.filter(w=>w.symbol!==s); delete PC[s];
   saveData(); if(cfg.gsUrl) gasCall({action:'delete',sheet:'watchlist',id:s}).catch(()=>{});
   render(); updateBadges(); toast('Đã xoá '+s,'ok');
+}
+
+// ── CONFIRM ORDER → histTrades / positions ────────────────────
+function confirmOrder(ordId) {
+  const o = D.orders.find(x => x.id === ordId);
+  if (!o || o.status !== 'filled') { toast('Chỉ xác nhận lệnh đã khớp','wn'); return; }
+  if (!confirm(`Xác nhận lệnh ${o.type.toUpperCase()} ${o.symbol}?\n→ ${o.type==='sell'?'Lưu vào Giao dịch cũ':'Cộng vào Vị thế đang nắm'}`)) return;
+
+  if (o.type === 'sell') {
+    // Move to histTrades
+    const ab = Number(o.avgBuyPrice||0) || avgBuy(o.symbol, o.id);
+    const fee = Number(o.fees||0);
+    saveRec('histTrades', {
+      id:         uid(),
+      symbol:     o.symbol,
+      quantity:   Number(o.quantity||0),
+      buyPrice:   ab,
+      sellPrice:  Number(o.fillPrice||o.orderPrice||0),
+      fee:        fee,
+      date:       (o.time||now()).slice(0,10),
+      note:       'Từ lệnh ' + ordId
+    });
+    // Remove order
+    delRec('orders', ordId);
+    toast('Đã lưu vào Giao dịch cũ ✓', 'ok');
+  } else {
+    // Merge into positions (weighted average)
+    const qty   = Number(o.quantity||0);
+    const price = Number(o.fillPrice||o.orderPrice||0);
+    const existing = D.positions.find(p => p.symbol === o.symbol);
+    if (existing) {
+      const oldQty = Number(existing.quantity||0);
+      const oldAvg = Number(existing.avgCost||0);
+      existing.quantity = oldQty + qty;
+      existing.avgCost  = oldQty > 0 ? (oldAvg*oldQty + price*qty) / (oldQty+qty) : price;
+      existing.avgCost  = Math.round(existing.avgCost * 100) / 100;
+      saveRec('positions', existing);
+    } else {
+      saveRec('positions', {
+        id: uid(), symbol: o.symbol,
+        name: D.watchlist.find(w=>w.symbol===o.symbol)?.name||'',
+        quantity: qty, avgCost: price, manualEntry: false, addedAt: now()
+      });
+    }
+    // Remove order
+    delRec('orders', ordId);
+    toast('Đã cộng vào Vị thế đang nắm ✓', 'ok');
+  }
+  render(); updateBadges();
+}
+
+// ── PASTE ORDERS ──────────────────────────────────────────────
+let pendingPasteOrds = [];
+
+function previewPasteOrds() {
+  const txt = ($('pasteOrdText')||{}).value?.trim();
+  if (!txt) { toast('Nhập dữ liệu','wn'); return; }
+  pendingPasteOrds = [];
+  let errs = 0;
+  const rows = [];
+  txt.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line => {
+    const p = line.split(/[\s,;\t]+/).filter(Boolean);
+    if (p.length < 3) { errs++; return; }
+    const sym  = p[0].toUpperCase();
+    const type = (p[1]||'').toLowerCase().includes('bán')||(p[1]||'').toLowerCase()==='sell'||(p[1]||'')==='b' ? 'sell' : 'buy';
+    let price  = parseFloat((p[2]||'').replace(/[.,]/g,''));
+    const qty  = parseInt((p[3]||'100').replace(/[.,]/g,''))||100;
+    const stRaw = (p[4]||'filled').toLowerCase();
+    const status = stRaw.includes('fill')||stRaw.includes('khớp') ? 'filled' : (stRaw.includes('pend')||stRaw.includes('chờ') ? 'pending' : 'filled');
+    const dateStr = p[5] || tod();
+    if (!sym||!price||price<=0) { errs++; return; }
+    if (price < 1000) price *= 1000;
+    const rec = {id:uid(), symbol:sym, type, orderPrice:price, fillPrice:price, quantity:qty, status, time:new Date(dateStr+'T12:00:00').toISOString()||now(), fees:0, pnl:null};
+    rows.push(rec);
+    pendingPasteOrds.push(rec);
+  });
+  if (errs) toast(errs+' dòng lỗi, bỏ qua','wn');
+  if (!rows.length) { toast('Không có dữ liệu hợp lệ','er'); return; }
+  const info = $('pasteOrdInfo'); if(info) info.textContent = rows.length+' lệnh';
+  const tb = $('tbPasteOrdPrev');
+  if (tb) {
+    const stTag = {filled:'<span class="tag-b">✅Khớp</span>', pending:'<span style="color:var(--yellow)">⏳Chờ</span>'};
+    tb.innerHTML = rows.map(r =>
+      '<tr><td><span class="sym">'+r.symbol+'</span></td>'
+      +'<td><span class="'+(r.type==='buy'?'tag-b':'tag-s')+'">'+(r.type==='buy'?'▲MUA':'▼BÁN')+'</span></td>'
+      +'<td>'+fN(r.orderPrice,0)+'</td><td>'+fN(r.quantity)+'</td>'
+      +'<td>'+(stTag[r.status]||r.status)+'</td>'
+      +'<td style="color:var(--t2);font-size:.7rem">'+r.time.slice(0,10)+'</td></tr>'
+    ).join('');
+  }
+  const prev = $('pasteOrdPrev'); if(prev) prev.style.display = '';
 }
 
 function startTimer() {
