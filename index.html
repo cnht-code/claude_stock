@@ -2297,7 +2297,7 @@ document.addEventListener('DOMContentLoaded', function() {
       } catch(e) {
         if(st) st.innerHTML = '<span style="color:var(--red)">❌ '+e.message+'</span>';
       }
-    });;;
+    });
     $('btnShowTok').addEventListener('click', () => { const f=$('tgToken'); if(f) f.type = f.type==='password'?'text':'password'; });
     $('btnSaveTg')?.addEventListener('click', () => {
       cfg.tgToken = ($('tgToken').value||'').trim();
