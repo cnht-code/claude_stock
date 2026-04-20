@@ -1881,23 +1881,7 @@ async function handleTgCommand(text) {
   const t = text.toLowerCase().replace(/^\//, '').trim();
 
   if (t === 'help' || t === 'menu') {
-    await tgSend('📋 *Các lệnh hỗ trợ:*
-'
-      +'/dm — Danh mục & báo cáo
-'
-      +'/ls — Vị thế đang nắm
-'
-      +'/orders — Nhật ký 10 lệnh gần nhất
-'
-      +'/pending — Lệnh đang chờ khớp
-'
-      +'/dn — Danh mục quan tâm + giá
-'
-      +'/bc — Báo cáo nhanh
-'
-      +'/gia FPT — Giá & L/L mã CK
-'
-      +'/help — Menu này');
+    await tgSend('📋 *Các lệnh hỗ trợ:*\n/dm — Danh mục & báo cáo\n/ls — Vị thế đang nắm\n/orders — Nhật ký lệnh\n/pending — Lệnh đang chờ khớp\n/dn — Danh mục quan tâm\n/bc — Báo cáo nhanh\n/gia FPT — Giá & L/L\n/help — Menu này');
     return;
   }
 
@@ -1956,8 +1940,7 @@ async function handleTgCommand(text) {
       const pnlStr = (o.pnl!=null && o.type==='sell') ? ' L/L:'+(o.pnl>=0?'🟢':'🔴')+fM(o.pnl) : '';
       lines.push(st2+em+' *'+o.symbol+'* '+fN(o.orderPrice,0)+'đ x'+fN(o.quantity)+' ('+dt+')'+pnlStr);
     });
-    await tgSend(lines.join('
-'));
+    await tgSend(lines.join('\n'));
     return;
   }
 
@@ -1972,8 +1955,7 @@ async function handleTgCommand(text) {
       const distStr = diff!==null ? ' (cách '+fN(Math.abs(diff),0)+'đ)' : '';
       lines.push(em+' *'+o.symbol+'* @ '+fN(o.orderPrice,0)+'đ x'+fN(o.quantity)+distStr);
     });
-    await tgSend(lines.join('
-'));
+    await tgSend(lines.join('\n'));
     return;
   }
 
